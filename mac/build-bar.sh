@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# build-bar.sh — compile l'app menubar (claudy-bar.swift) en mac/agent-claudy.app.
+# build-bar.sh — compiles the menubar app (claudy-bar.swift) into mac/agent-claudy.app.
 #
-# Nécessite les Command Line Tools (swiftc). Produit un bundle .app menubar
-# (LSUIElement → pas d'icône dans le Dock) avec une icône (logo aviateur de Claudy,
-# pour la notification) et une signature ad-hoc (requise pour UserNotifications).
-# Aucune dépendance externe (qlmanage / sips / iconutil / codesign sont natifs macOS).
+# Requires the Command Line Tools (swiftc). Produces a menubar .app bundle
+# (LSUIElement → no Dock icon) with an icon (Claudy's aviator logo, used for
+# notifications) and an ad-hoc signature (required for UserNotifications).
+# No external dependencies (qlmanage / sips / iconutil / codesign ship with macOS).
 
 set -euo pipefail
 
@@ -25,7 +25,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 swiftc -O -framework Cocoa -framework UserNotifications \
   -o "$APP/Contents/MacOS/agent-claudy" "$SRC"
 
-# ── Icône (.icns) depuis le SVG : rendu PNG (qlmanage) → tailles (sips) → iconutil ──
+# ── Icon (.icns) from the SVG: render to PNG (qlmanage) → resize (sips) → iconutil ──
 HAS_ICON=false
 if [ -f "$ICON_SVG" ] && command -v qlmanage >/dev/null 2>&1 && command -v iconutil >/dev/null 2>&1; then
   TMP="$DIR/.icon-build"
@@ -66,8 +66,8 @@ $($HAS_ICON && echo '  <key>CFBundleIconFile</key><string>claudy</string>')
 </plist>
 PLIST_EOF
 
-# Signature ad-hoc : sans elle, UNUserNotificationCenter.requestAuthorization échoue
-# silencieusement sur macOS récent. `-` = identité ad-hoc (pas de certificat requis).
+# Ad-hoc signature: without it, UNUserNotificationCenter.requestAuthorization fails
+# silently on recent macOS. `-` = ad-hoc identity (no certificate required).
 if command -v codesign >/dev/null 2>&1; then
   codesign --force --deep --sign - "$APP" >/dev/null 2>&1 && echo "  ✓ signée (ad-hoc)" || echo "  (signature ad-hoc échouée — notifs peut-être indisponibles)"
 fi

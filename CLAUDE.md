@@ -91,6 +91,29 @@ Ces règles s'appliquent quelle que soit la stack retenue.
 > (la plus récente en haut). Format : `### AAAA-MM-JJ — Titre court` puis des puces
 > décrivant ce qui a été fait et pourquoi.
 
+### 2026-06-25 — Mode de session (plan/edit) + niveau d'effort (ultracode visible)
+- Suite de la remontée d'infos : on affiche désormais le **mode** de la session
+  (`permissionMode` : plan / acceptEdits / auto / default) et le **niveau d'effort**, avec
+  l'**ultracode** mis en avant (la demande explicite de l'utilisateur : « voir si on est en
+  ultracode »).
+- `server/discover.js` : le **mode** est lu dans la queue du transcript en même temps que
+  l'activité (`latestActivity` renvoie `{tool, model, mode}`, dernier `permissionMode`). L'**effort**
+  est posé par `/effort` et PERSISTE (souvent défini très tôt, hors queue) → `sessionEffort` suit
+  le transcript de façon **incrémentale** : 1re lecture complète une fois, puis seulement le delta
+  ajouté (le JSONL n'ajoute que des lignes complètes), mémoïsé par taille (`effortCache`). Marqueur
+  **structuré** insensible à la pollution : message dont le `content` est la CHAÎNE
+  `<local-command-stdout>Set effort level to <X>…` (un résultat d'outil a un content tableau →
+  écarté). Calculés pour les sessions **actives** uniquement. Champs ajoutés à la signature de pub.
+- `server/server.js` : `snapshot`/`upsertAgent` propagent `mode`/`effort` ; démo enrichie
+  (demo-1 en `acceptEdits` + `ultracode` ; une tête en `plan`/`high`).
+- Frontend : rangée **`.badges`** sous le nom — puce **mode** (📋 Plan / ✏️ Edit / ⚙️ Auto, `default`
+  masqué) et puce **effort** (high/xhigh/max, et **⚡ ULTRACODE** en puce pleine dorée + lueur).
+  `prettyMode`/`prettyEffort`/`setBadges` ; masquage `:empty`. Édité via script atomique car une
+  AUTRE session Claude traduisait les commentaires FR→EN en continu (course avec l'outil Edit).
+- Validé : `node --check` (3 fichiers) ; scan réel → `cc-8f746ae7` = `mode:auto, effort:ultracode,
+  activity:Workflow` (vraie session en ultracode lançant un workflow), sessions idle → `null`
+  (I/O évitée) ; API live confirme après redémarrage. **Rendu navigateur des badges à valider.**
+
 ### 2026-06-25 — Audit (sécu + code) avant publication + durcissement
 - Audit multi-agents (workflow, 6 dimensions, vérif adversariale → 52 trouvailles ; détail dans
   le scratchpad `AUDIT.md`). Bonne base : aucun secret fuité, XSS frontend maîtrisé (`textContent`),

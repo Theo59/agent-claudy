@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# uninstall-login.sh — retire le démarrage au login d'agent-claudy.
+# uninstall-login.sh — removes agent-claudy's start-at-login entry.
 #
-# Décharge et supprime le LaunchAgent, et restaure les notifications natives de
-# Claude Code si elles avaient été coupées.
+# Unloads and deletes the LaunchAgent, and restores Claude Code's native
+# notifications if they had been muted.
 
 set -euo pipefail
 
@@ -18,6 +18,6 @@ else
   echo "(aucun LaunchAgent trouvé : $PLIST)"
 fi
 
-# Restaure les notifs de Claude Code au cas où le serveur ne l'aurait pas fait.
+# Restore Claude Code's notifications in case the server didn't do it.
 node "$PROJECT_DIR/bin/claudy-mute-claude.js" off 2>/dev/null || true
 echo "✓ notifications de Claude Code restaurées (si nécessaire)."

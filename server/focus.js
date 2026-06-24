@@ -1,18 +1,18 @@
-// agent-claudy — « aller à la fenêtre de l'agent ».
+// agent-claudy — "jump to the agent's window".
 //
-// À partir du PID d'une session Claude Code, on remonte l'arbre des processus pour
-// déterminer QUI l'héberge (éditeur VS Code / Cursor, terminal, autre) puis on
-// active la bonne fenêtre :
-//   - éditeur : `code <cwd>` / `cursor <cwd>` ramène la fenêtre du dossier au premier
-//     plan (et l'ouvre si besoin), + activation de l'app ;
-//   - terminal : on active l'app du terminal ;
-//   - sinon : on ouvre le dossier dans le Finder (repli).
+// Starting from a Claude Code session's PID, we walk up the process tree to
+// figure out WHO is hosting it (VS Code / Cursor editor, terminal, other) and then
+// bring the right window to the front:
+//   - editor: `code <cwd>` / `cursor <cwd>` brings the folder's window to the
+//     foreground (opening it if needed), plus activating the app;
+//   - terminal: we activate the terminal app;
+//   - otherwise: we open the folder in Finder (fallback).
 //
-// macOS uniquement (osascript / open). Zéro dépendance.
+// macOS only (osascript / open). Zero dependencies.
 
 import { spawn, spawnSync } from "node:child_process";
 
-// Un cran de l'arbre : ppid + chemin complet de l'exécutable (ps -o comm= donne le path).
+// One step up the tree: ppid + full path of the executable (ps -o comm= gives the path).
 function procInfo(pid) {
   const r = spawnSync("ps", ["-o", "ppid=,comm=", "-p", String(pid)], { encoding: "utf8" });
   if (r.status !== 0 || !r.stdout) return null;
@@ -21,7 +21,7 @@ function procInfo(pid) {
   return { ppid: Number(m[1]), comm: m[2] };
 }
 
-// Remonte jusqu'à launchd (pid 1) ; renvoie la liste des exécutables traversés.
+// Walks up to launchd (pid 1); returns the list of executables traversed.
 function ancestry(pid) {
   const chain = [];
   let p = Number(pid);
@@ -57,21 +57,21 @@ function classify(chain) {
   return { kind: "unknown", app: null };
 }
 
-// Lance une commande sans bloquer (réponse HTTP immédiate ; l'activation suit ~200ms).
+// Runs a command without blocking (immediate HTTP response; activation follows ~200ms later).
 function run(cmd, args) {
   try {
     const p = spawn(cmd, args, { stdio: "ignore", detached: true });
     p.on("error", () => {});
     p.unref();
   } catch {
-    /* on ne casse jamais le serveur pour un focus */
+    /* we never crash the server over a focus attempt */
   }
 }
 
 /**
- * Ramène au premier plan la fenêtre hébergeant la session.
- * Via `open -a` (LaunchServices) : rapide (~200ms) et focuse la fenêtre du dossier
- * pour les éditeurs — contrairement au CLI `code`/`cursor` qui démarre un pont lent.
+ * Brings the window hosting the session to the foreground.
+ * Via `open -a` (LaunchServices): fast (~200ms) and focuses the folder's window
+ * for editors — unlike the `code`/`cursor` CLI, which spins up a slow bridge.
  * @param {{pid:number, cwd:string}} session
  * @returns {{ok:boolean, action:string, app:string|null}}
  */
@@ -80,7 +80,7 @@ export function focusSession({ pid, cwd }) {
   const info = classify(ancestry(pid));
 
   if (info.kind === "editor") {
-    // `open -a "VS Code" <cwd>` : VS Code focuse la fenêtre qui a déjà ce dossier ouvert.
+    // `open -a "VS Code" <cwd>`: VS Code focuses the window that already has this folder open.
     run("open", cwd ? ["-a", info.app, cwd] : ["-a", info.app]);
     return { ok: true, action: "editor", app: info.app };
   }
@@ -88,7 +88,7 @@ export function focusSession({ pid, cwd }) {
     run("open", ["-a", info.app]);
     return { ok: true, action: "terminal", app: info.app };
   }
-  // Repli : ouvrir le dossier dans le Finder.
+  // Fallback: open the folder in Finder.
   if (cwd) run("open", [cwd]);
   return { ok: false, action: "fallback", app: null };
 }

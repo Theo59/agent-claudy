@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# install-login.sh — lance agent-claudy automatiquement à l'ouverture de session (launchd).
+# install-login.sh — starts agent-claudy automatically when you log in (launchd).
 #
-# Crée un LaunchAgent ~/Library/LaunchAgents/com.claudy.agent-claudy.plist qui démarre
-# le serveur en arrière-plan au login (et le relance s'il tombe). Réversible via
+# Creates a LaunchAgent ~/Library/LaunchAgents/com.claudy.agent-claudy.plist that starts
+# the server in the background at login (and restarts it if it dies). Reversible via
 # uninstall-login.sh.
 #
-# Usage :
+# Usage:
 #   mac/install-login.sh [--port 4310] [--no-notify] [--no-mute] [--hide-session SID]
 #
-# Options :
-#   --port N         port d'écoute (défaut 4310)
-#   --no-notify      ne pas afficher les notifications macOS (sinon activées)
-#   --no-mute        ne PAS couper les notifs natives de Claude Code (sinon coupées
-#                    tant que le serveur tourne, pour éviter le doublon)
-#   --hide-session   masque une session précise (ex. ton sessionId courant)
+# Options:
+#   --port N         listening port (default 4310)
+#   --no-notify      do not show macOS notifications (enabled otherwise)
+#   --no-mute        do NOT silence Claude Code's native notifications (silenced
+#                    otherwise while the server runs, to avoid duplicates)
+#   --hide-session   hide a specific session (e.g. your current sessionId)
 
 set -euo pipefail
 
@@ -34,7 +34,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# Valide le port : entier dans la plage TCP, sinon le daemon échouerait silencieusement au login.
+# Validate the port: an integer in the TCP range, otherwise the daemon would fail silently at login.
 case "$PORT" in
   '' | *[!0-9]*) echo "✗ Port invalide : « $PORT » (entier 1-65535 attendu)." >&2; exit 1 ;;
 esac
@@ -42,7 +42,7 @@ if [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
   echo "✗ Port hors plage : $PORT (attendu 1-65535)." >&2; exit 1
 fi
 
-# Chemins résolus à l'installation (launchd a un PATH minimal → chemins absolus requis).
+# Paths resolved at install time (launchd has a minimal PATH → absolute paths required).
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SERVER_JS="$PROJECT_DIR/server/server.js"
 NODE_BIN="$(command -v node || true)"
@@ -59,19 +59,19 @@ if [ ! -f "$SERVER_JS" ]; then
   exit 1
 fi
 
-# En dry-run : on génère et valide le plist dans un fichier temporaire, sans rien
-# charger ni toucher à ~/Library (utile pour vérifier avant d'activer pour de vrai).
+# In dry-run mode: generate and validate the plist in a temporary file, without loading
+# anything or touching ~/Library (handy to verify before actually enabling it).
 if [ "$DRY_RUN" = "1" ]; then
   PLIST="$(mktemp -t claudy-launchagent).plist"
 fi
 
 mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
 
-# Échappe les caractères XML spéciaux (un sessionId est normalement un UUID, mais on
-# ne fait pas confiance à l'entrée → pas de plist corrompu).
+# Escape special XML characters (a sessionId is normally a UUID, but we do not
+# trust the input → no corrupted plist).
 esc_xml() { printf '%s' "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
 
-# Bloc <key>/<string> pour HIDE_SESSION seulement si fourni.
+# <key>/<string> block for HIDE_SESSION only if provided.
 HIDE_BLOCK=""
 if [ -n "$HIDE_SESSION" ]; then
   HIDE_BLOCK="    <key>CLAUDY_HIDE_SESSION</key><string>$(esc_xml "$HIDE_SESSION")</string>"
@@ -105,7 +105,7 @@ $HIDE_BLOCK
 </plist>
 PLIST_EOF
 
-# Valide la syntaxe du plist avant de charger.
+# Validate the plist syntax before loading.
 plutil -lint "$PLIST" >/dev/null
 
 if [ "$DRY_RUN" = "1" ]; then
@@ -115,7 +115,7 @@ if [ "$DRY_RUN" = "1" ]; then
   exit 0
 fi
 
-# Recharge proprement (unload si déjà présent, puis load).
+# Reload cleanly (unload if already present, then load).
 launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load "$PLIST"
 

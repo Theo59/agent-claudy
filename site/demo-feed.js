@@ -1,13 +1,13 @@
-// agent-claudy — alimentation scriptée de l'aperçu (demo-app.html), SANS serveur.
+// agent-claudy — feeds the preview (demo-app.html), DRIVEN BY THE PARENT.
 //
-// Remplace `EventSource` et `fetch` par des bouchons : app.js tourne EXACTEMENT comme
-// en vrai (mêmes cartes BD, bulles, essaim, contour silhouette), mais les données
-// viennent d'un scénario rejoué en boucle au lieu du flux SSE du serveur.
+// We replace EventSource/fetch with stubs, but this time the snapshots do NOT
+// come from a local loop: they arrive via postMessage from the showcase page
+// (terminal.js), so that the terminals and the Claudy heads stay IN SYNC.
 
 (function () {
   "use strict";
 
-  // Vraies répliques de Claudy (cf. data/quotes.json) pour /api/quotes.
+  // Real Claudy lines (see data/quotes.json) for /api/quotes.
   const QUOTES = [
     "T'es épais comme un cable de frein à main !",
     "Y a moyen de tout, tout est négociable.",
@@ -18,49 +18,8 @@
     "Tu vas pas m'dire toi c'que j'dois dire moi hein.",
     "Non, c'est un électrique !",
   ];
-  const NEEDS = "Chef, ou tu sors ou j'te sors, mais faudra prendre une décision.";
 
-  // Essaim de workflow (jetsite) qui progresse : `done` têtes terminées, le reste working.
-  function swarm(done) {
-    const names = ["Explore", "blog-researcher", "code-review", "general-purpose", "design", "Explore"];
-    const children = names.map((name, i) => ({
-      id: `cc-jet-sub-${i}`,
-      name,
-      status: i < done ? "done" : "working",
-      workflowId: "wf_demo",
-    }));
-    return {
-      children,
-      childExtra: 0,
-      swarm: { done, failed: 0, working: children.length - done, total: children.length },
-    };
-  }
-
-  // Construit un snapshot. `opts` ajuste l'état narratif (avancement essaim, alerte…).
-  function snap(opts) {
-    const jet = swarm(opts.swarmDone);
-    return {
-      type: "agents",
-      agents: [
-        { id: "cc-1", name: "claudy-ui-pro-upgrade", state: opts.alert ? "needs_input" : "working", request: opts.alert ? NEEDS : null },
-        { id: "cc-2", name: "daphn-e-lachavanne", state: opts.daphnWorking ? "working" : "idle" },
-        { id: "cc-3", name: "jetsite", state: "working", children: jet.children, childExtra: jet.childExtra, swarm: jet.swarm },
-        { id: "cc-4", name: "externalize-media-to-sanity", state: opts.extIdle ? "idle" : "working" },
-      ],
-    };
-  }
-
-  // Scénario rejoué en boucle (chaque image tient `hold` ms).
-  const FRAMES = [
-    { hold: 2600, snap: snap({ swarmDone: 0 }) },
-    { hold: 2600, snap: snap({ swarmDone: 1, daphnWorking: true }) },
-    { hold: 3000, snap: snap({ swarmDone: 2, daphnWorking: true, alert: true }) }, // alerte rouge
-    { hold: 2600, snap: snap({ swarmDone: 3, alert: true }) },
-    { hold: 2600, snap: snap({ swarmDone: 4, extIdle: true }) }, // alerte levée
-    { hold: 2600, snap: snap({ swarmDone: 6, extIdle: true }) }, // workflow fini (tout vert)
-  ];
-
-  // ── Bouchon fetch : /api/quotes (et no-op pour le reste). ───────────────────
+  // ── fetch stub: /api/quotes (and no-op for everything else). ────────────────
   const realFetch = window.fetch ? window.fetch.bind(window) : null;
   window.fetch = function (url) {
     const u = String(url);
@@ -73,26 +32,35 @@
     return realFetch ? realFetch.apply(this, arguments) : Promise.reject(new Error("offline"));
   };
 
-  // ── Bouchon EventSource : rejoue FRAMES en boucle. ──────────────────────────
+  // ── EventSource stub: emits whatever the parent sends (postMessage). ─────────
+  let live = null;
+  let last = null; // last snapshot received (replayed on (re)connection)
+
   function FakeES() {
     this.onopen = null;
     this.onmessage = null;
     this.onerror = null;
+    live = this;
     const self = this;
-    let i = 0;
-    function tick() {
-      const f = FRAMES[i % FRAMES.length];
-      if (self.onmessage) self.onmessage({ data: JSON.stringify(f.snap) });
-      i++;
-      self._t = setTimeout(tick, f.hold);
-    }
     setTimeout(function () {
       if (self.onopen) self.onopen();
-      tick();
+      if (last && self.onmessage) self.onmessage({ data: JSON.stringify(last) });
+      // Tell the parent we're ready → it (re)pushes the current snapshot.
+      try {
+        parent.postMessage("claudy-ready", "*");
+      } catch (e) {}
     }, 60);
   }
   FakeES.prototype.close = function () {
-    clearTimeout(this._t);
+    if (live === this) live = null;
   };
   window.EventSource = FakeES;
+
+  window.addEventListener("message", function (e) {
+    const d = e.data;
+    if (d && d.type === "agents") {
+      last = d;
+      if (live && live.onmessage) live.onmessage({ data: JSON.stringify(d) });
+    }
+  });
 })();

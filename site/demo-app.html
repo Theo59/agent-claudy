@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <!-- Aperçu autonome : le VRAI frontend (app.js + styles.css + claudy.js), alimenté
-         par demo-feed.js (faux flux SSE scripté) → identique à l'app, sans serveur. -->
+    <!-- Standalone preview: the REAL frontend (app.js + styles.css + claudy.js), driven
+         by demo-feed.js (fake scripted SSE stream) → identical to the app, without a server. -->
     <svg width="0" height="0" style="position: absolute" aria-hidden="true">
       <symbol id="claudy-mark" viewBox="0 0 64 42" fill="currentColor">
         <path d="M6 11 Q32 7 58 11 L58 13.5 Q32 9.5 6 13.5 Z" />
@@ -65,7 +65,7 @@
       <span>« Éducation minimum ! » — Claudy Focan</span>
     </footer>
 
-    <!-- demo-feed AVANT app.js : il remplace EventSource/fetch par un flux scripté. -->
+    <!-- demo-feed BEFORE app.js: it replaces EventSource/fetch with a scripted stream. -->
     <script src="claudy.js"></script>
     <script src="demo-feed.js"></script>
     <script src="app.js"></script>

@@ -24,7 +24,7 @@ body {
   background:
     radial-gradient(1200px 600px at 50% -10%, #2a2118 0%, transparent 60%),
     var(--bg);
-  /* Léger grain CRT. */
+  /* Subtle CRT grain. */
   background-attachment: fixed;
 }
 
@@ -48,8 +48,8 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* Marque (logo lunettes + moustache) reprise dans la topbar, l'état vide, le footer
-   et le panneau de réglages → identité visuelle cohérente. */
+/* Brand mark (glasses + mustache logo) reused in the topbar, empty state, footer
+   and settings panel → consistent visual identity. */
 .brand {
   display: flex;
   align-items: center;
@@ -70,7 +70,7 @@ svg.brand-mark {
   display: block;
 }
 
-/* Bouton-icône discret (roue crantée des réglages) : remplace les gros boutons. */
+/* Discreet icon button (settings gear) : replaces the bulky buttons. */
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -90,7 +90,7 @@ svg.brand-mark {
   border-color: var(--accent);
   background: rgba(216, 166, 87, 0.08);
 }
-/* Retour visuel du bouton refresh : l'icône tourne un instant au clic. */
+/* Visual feedback on the refresh button : the icon spins briefly on click. */
 .icon-btn.spinning svg {
   animation: spin 0.6s linear;
 }
@@ -100,8 +100,8 @@ svg.brand-mark {
   }
 }
 
-/* Vignette étroite (fenêtre flottante macOS, viewport ~258px) : toolbar ultra-compacte
-   sur une seule ligne. Le navigateur (large) garde la version complète. */
+/* Narrow viewport (macOS floating window, viewport ~258px) : ultra-compact toolbar
+   on a single line. The (wide) browser keeps the full version. */
 @media (max-width: 360px) {
   .topbar {
     gap: 8px;
@@ -111,7 +111,7 @@ svg.brand-mark {
   #conn-label,
   #count,
   .status .sep {
-    display: none; /* le logo + le point de connexion + le résumé suffisent */
+    display: none; /* the logo + connection dot + summary are enough */
   }
   .status {
     font-size: 11px;
@@ -133,9 +133,9 @@ svg.brand-mark {
 .status {
   display: flex;
   align-items: center;
-  flex-wrap: wrap; /* les compteurs passent à la ligne au lieu de déborder */
+  flex-wrap: wrap; /* counters wrap to the next line instead of overflowing */
   gap: 8px;
-  min-width: 0; /* autorise le rétrécissement dans la topbar flex (pas d'overflow) */
+  min-width: 0; /* allows shrinking inside the flex topbar (no overflow) */
   font-size: 13px;
   color: var(--muted);
 }
@@ -189,25 +189,25 @@ button.ghost {
 
 .grid {
   display: grid;
-  /* min(--tile, 100%) : une colonne ne dépasse JAMAIS la largeur dispo → plus de
-     scroll horizontal quand on rétrécit la fenêtre (sinon minmax force la largeur). */
+  /* min(--tile, 100%) : a column NEVER exceeds the available width → no more
+     horizontal scroll when shrinking the window (otherwise minmax forces the width). */
   grid-template-columns: repeat(auto-fill, minmax(min(var(--tile, 160px), 100%), 1fr));
-  align-items: start; /* cases à hauteur naturelle (planche de BD), alignées en haut */
+  align-items: start; /* panels at natural height (comic strip), top-aligned */
   gap: 10px;
   padding: 12px;
   width: 100%;
   margin: 0;
 }
 
-/* Case de BD : AUCUN fond, bordure épaisse couleur crème (= couleur de la bulle).
-   La bulle (même crème) colle au cadre par le haut → elle fond dans la bordure. */
+/* Comic panel : NO background, thick cream-colored border (= bubble color).
+   The bubble (same cream) sticks to the frame at the top → it blends into the border. */
 .card {
   --frame: #efe6cf;
-  /* Couleur du contour de statut (épouse la silhouette via drop-shadow, cf. .avatar canvas). */
+  /* Status outline color (hugs the silhouette via drop-shadow, cf. .avatar canvas). */
   --ring: var(--card-border);
-  /* Contour qui suit les courbes du visage : on empile des drop-shadow dans 8 directions
-     (cardinales + diagonales) ; chacun trace le canal alpha de la tête détourée → liseré
-     continu épousant cheveux / joues / col. Recoloré en changeant --ring selon l'état. */
+  /* Outline that follows the contours of the face : we stack drop-shadows in 8 directions
+     (cardinal + diagonal) ; each traces the alpha channel of the cut-out head → continuous
+     edge hugging hair / cheeks / collar. Recolored by changing --ring per state. */
   --outline:
     drop-shadow(1px 0 0 var(--ring)) drop-shadow(-1px 0 0 var(--ring))
     drop-shadow(0 1px 0 var(--ring)) drop-shadow(0 -1px 0 var(--ring))
@@ -218,15 +218,15 @@ button.ghost {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 0 0 9px; /* haut sans padding : la bulle touche la bordure du haut */
+  padding: 0 0 9px; /* no top padding : the bubble touches the top border */
   background: transparent;
   border: 3px solid var(--frame);
   border-radius: 15px;
-  overflow: hidden; /* la bulle épouse les coins arrondis du cadre */
+  overflow: hidden; /* the bubble follows the rounded corners of the frame */
   min-width: 0;
-  container-type: inline-size; /* permet de dimensionner la police de la bulle en cqi */
+  container-type: inline-size; /* lets the bubble font size be expressed in cqi */
 }
-/* Tête au repos (pas de bulle) : un peu d'air en haut pour ne pas coller au cadre. */
+/* Head at rest (no bubble) : a bit of room at the top so it doesn't touch the frame. */
 .card:not(:has(.bubble.show)) {
   padding-top: 9px;
 }
@@ -234,8 +234,8 @@ button.ghost {
   --frame: #f3cbc4;
 }
 
-/* Avatar : la tête détourée flotte sur fond transparent (plus de cercle rogné) ;
-   le statut est porté par un contour qui suit sa silhouette (--outline sur le canvas). */
+/* Avatar : the cut-out head floats on a transparent background (no more clipped circle) ;
+   the status is carried by an outline that follows its silhouette (--outline on the canvas). */
 .avatar {
   width: var(--avatar, 64px);
   height: var(--avatar, 64px);
@@ -248,25 +248,25 @@ button.ghost {
   width: 100%;
   height: 100%;
   display: block;
-  filter: var(--outline); /* liseré épousant les courbes du visage, couleur = --ring */
+  filter: var(--outline); /* edge hugging the contours of the face, color = --ring */
   transition: filter 0.25s ease;
 }
 
-/* Couleur du contour selon l'état (le « autre moyen » d'afficher le statut). */
+/* Outline color per state (the "other way" to display the status). */
 .card[data-state="working"] {
   --ring: var(--green);
-  --frame: #d3e9c3; /* cadre + bulle teintés vert quand il bosse (pendant du rosé needs_input) */
+  --frame: #d3e9c3; /* frame + bubble tinted green while working (counterpart to needs_input pink) */
 }
 .card[data-state="working"] .avatar canvas {
   animation: silhouette-pulse 2.4s ease-in-out infinite;
 }
 .card[data-state="idle"] {
   --ring: var(--muted);
-  --frame: #d6d1c6; /* légèrement grisé quand il ne fait rien */
+  --frame: #d6d1c6; /* slightly grayed out when idle */
 }
 .card[data-state="offline"] {
   --ring: #4a4338;
-  --frame: #c0bab0; /* gris éteint hors ligne */
+  --frame: #c0bab0; /* dull gray when offline */
 }
 .card[data-state="needs_input"] {
   --ring: var(--red);
@@ -274,9 +274,9 @@ button.ghost {
 .card[data-state="needs_input"] .avatar canvas {
   animation: silhouette-alert 0.9s ease-in-out infinite;
 }
-/* Pulsation/alerte : on ajoute une lueur (drop-shadow flou) qui suit elle aussi la
-   silhouette, en plus du liseré net. Même nombre de fonctions filter aux deux étapes
-   (lueur à flou nul au repos) pour une interpolation fluide. */
+/* Pulse/alert : we add a glow (blurred drop-shadow) that also follows the
+   silhouette, on top of the crisp edge. Same number of filter functions at both steps
+   (glow with zero blur at rest) for smooth interpolation. */
 @keyframes silhouette-pulse {
   0%,
   100% {
@@ -296,7 +296,7 @@ button.ghost {
   }
 }
 
-/* Essaim de sous-agents : rangée de mini-têtes sous le nom + compteur. Vide → invisible. */
+/* Sub-agent swarm : row of mini-heads under the name + counter. Empty → invisible. */
 .children {
   display: flex;
   flex-wrap: wrap;
@@ -307,11 +307,11 @@ button.ghost {
   padding: 0 8px;
 }
 .children:not(:has(.mini)) {
-  display: none; /* aucune mini-tête → pas d'espace réservé */
+  display: none; /* no mini-head → no reserved space */
 }
 .mini {
-  /* Statut de la tête : en cours (ambre, pulse), terminé (vert), échoué (rouge).
-     Couleur portée par --ring (le contour du canvas la lit). */
+  /* Head status : working (amber, pulse), done (green), failed (red).
+     Color carried by --ring (the canvas outline reads it). */
   --ring: var(--amber);
   width: 30px;
   height: 30px;
@@ -342,7 +342,7 @@ button.ghost {
   width: 100%;
   height: 100%;
   display: block;
-  /* Contour fin épousant la silhouette, comme la grande tête mais plus léger. */
+  /* Thin outline hugging the silhouette, like the big head but lighter. */
   filter:
     drop-shadow(0.7px 0 0 var(--ring)) drop-shadow(-0.7px 0 0 var(--ring))
     drop-shadow(0 0.7px 0 var(--ring)) drop-shadow(0 -0.7px 0 var(--ring));
@@ -364,16 +364,16 @@ button.ghost {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ink);
-  cursor: text; /* indice : double-cliquer pour renommer */
+  cursor: text; /* hint : double-click to rename */
 }
 .card .name:hover {
   text-decoration: underline dotted var(--muted);
   text-underline-offset: 2px;
 }
-/* Activité courante : dernier outil + modèle, juste sous le nom. Discret, tronqué,
-   masqué quand vide (sinon le gap flex de la carte réserverait un espace fantôme). */
+/* Current activity : latest tool + model, right under the name. Discreet, truncated,
+   hidden when empty (otherwise the card's flex gap would reserve phantom space). */
 .card .activity {
-  margin-top: -4px; /* se rapproche du nom (le gap de 8px de la carte est trop large ici) */
+  margin-top: -4px; /* pulls closer to the name (the card's 8px gap is too wide here) */
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -386,7 +386,45 @@ button.ghost {
 .card .activity:empty {
   display: none;
 }
-/* Pendant l'édition inline : champ visible, plus de troncature. */
+
+/* Session badges: mode (plan/edit) + effort level (ultracode highlighted). */
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  margin-top: -2px;
+}
+/* Row collapses when neither chip has content (avoids a phantom flex gap). */
+.badges:not(:has(.badge:not(:empty))) {
+  display: none;
+}
+.badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--card-border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.badge:empty {
+  display: none;
+}
+.badge--mode {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+/* Ultracode: the star — bright filled chip with a glow so it stands out at a glance. */
+.badge--ultra {
+  color: #14110d;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(216, 166, 87, 0.6);
+}
+/* During inline editing : field visible, no truncation. */
 .card .name.editing {
   overflow: visible;
   text-overflow: clip;
@@ -397,45 +435,45 @@ button.ghost {
   text-decoration: none;
 }
 
-/* Bulle BD en haut de la case, sur toute la largeur, queue vers la tête en dessous.
-   En flux (pas de chevauchement) ; affichée via .show (working / needs_input). */
+/* Comic bubble at the top of the panel, full width, tail pointing to the head below.
+   In flow (no overlap) ; shown via .show (working / needs_input). */
 .bubble {
   position: relative;
   display: none;
-  width: 100%; /* pleine largeur, bord à bord avec le cadre */
-  margin-bottom: 20px; /* place pour la queue en virgule qui descend vers la tête */
+  width: 100%; /* full width, edge to edge with the frame */
+  margin-bottom: 20px; /* room for the comma-shaped tail descending toward the head */
   padding: 8px 9px;
-  background: var(--frame); /* MÊME couleur que la bordure → fusion */
+  background: var(--frame); /* SAME color as the border → merge */
   color: #15100a;
   border: 0;
-  border-radius: 0 0 13px 13px; /* haut plat (se fond au cadre), bas arrondi */
-  /* Police proportionnelle à la largeur de la case (container query) avec bornes :
-     reste lisible sur grande tuile, ne déborde plus quand la densité réduit la case. */
+  border-radius: 0 0 13px 13px; /* flat top (blends into the frame), rounded bottom */
+  /* Font size proportional to the panel width (container query) with bounds :
+     stays readable on a large tile, no longer overflows when density shrinks the panel. */
   font-size: clamp(8px, 6.2cqi, 12px);
   font-weight: 600;
   line-height: 1.3;
   text-align: center;
-  /* PAS d'overflow:hidden ici : sinon la queue (::after, sous la bulle) est rognée.
-     La troncature vit sur .bubble-text. */
+  /* NO overflow:hidden here : otherwise the tail (::after, below the bubble) gets clipped.
+     Truncation lives on .bubble-text. */
 }
 .bubble.show {
   display: block;
 }
-/* Ticker : le texte vit sur UNE seule ligne. S'il tient dans la largeur → statique centré
-   (aucun mouvement, calme visuel) ; sinon → défilement (marquee). .bubble-text = viewport
-   qui rogne horizontalement. overflow:hidden OK ICI : la queue (::after) est portée par
-   .bubble, pas par ce viewport interne, donc elle n'est pas rognée. */
+/* Ticker : the text lives on ONE single line. If it fits the width → static centered
+   (no motion, visual calm) ; otherwise → scrolling (marquee). .bubble-text = viewport
+   that clips horizontally. overflow:hidden OK HERE : the tail (::after) is carried by
+   .bubble, not by this inner viewport, so it isn't clipped. */
 .bubble-text {
   overflow: hidden;
   white-space: nowrap;
 }
 .bubble:not(.is-marquee) .bubble-text {
-  text-align: center; /* tient sur une ligne → centré et immobile */
+  text-align: center; /* fits on one line → centered and still */
 }
 .bubble.is-marquee .bubble-text {
   text-align: left;
 }
-/* Piste animée : 1 copie (statique) ou 2 copies identiques (boucle sans couture). */
+/* Animated track : 1 copy (static) or 2 identical copies (seamless loop). */
 .bubble-track {
   display: inline-block;
   white-space: nowrap;
@@ -445,16 +483,16 @@ button.ghost {
   display: inline-block;
 }
 .bubble-seg + .bubble-seg {
-  display: none; /* la 2e copie n'existe que pour le défilement */
+  display: none; /* the 2nd copy only exists for scrolling */
 }
 .bubble.is-marquee .bubble-seg {
-  margin-right: 2.4em; /* écart après CHAQUE copie → demi-piste = copie + écart */
+  margin-right: 2.4em; /* gap after EACH copy → half-track = copy + gap */
 }
 .bubble.is-marquee .bubble-seg + .bubble-seg {
   display: inline-block;
 }
 .bubble.is-marquee .bubble-track {
-  /* durée injectée en JS = distance / vitesse → vitesse constante quelle que soit la longueur */
+  /* duration injected in JS = distance / speed → constant speed regardless of length */
   animation: bubble-marquee var(--marquee-duration, 8s) linear infinite;
 }
 @keyframes bubble-marquee {
@@ -462,12 +500,12 @@ button.ghost {
     transform: translateX(0);
   }
   to {
-    /* 2 copies égales → -50% = exactement une copie + écart : la reprise est invisible */
+    /* 2 equal copies → -50% = exactly one copy + gap : the wrap-around is invisible */
     transform: translateX(-50%);
   }
 }
-/* Accessibilité : aucun défilement si l'utilisateur réduit les animations.
-   Repli LISIBLE : le texte revient en flux et s'enroule sur quelques lignes (jamais coupé). */
+/* Accessibility : no scrolling if the user reduces animations.
+   READABLE fallback : the text returns to flow and wraps over a few lines (never cut off). */
 @media (prefers-reduced-motion: reduce) {
   .bubble-track {
     animation: none;
@@ -479,7 +517,7 @@ button.ghost {
     white-space: normal;
   }
   .bubble-seg + .bubble-seg {
-    display: none !important; /* jamais de doublon en repli statique */
+    display: none !important; /* never a duplicate in the static fallback */
   }
   .bubble.is-marquee .bubble-seg {
     margin-right: 0;
@@ -487,20 +525,20 @@ button.ghost {
   .bubble-seg {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3; /* repli : 3 lignes max puis … (texte complet en infobulle) */
+    -webkit-line-clamp: 3; /* fallback : 3 lines max then … (full text in tooltip) */
     white-space: normal;
     overflow: hidden;
     overflow-wrap: break-word;
     hyphens: auto;
   }
 }
-/* Queue façon BD : virgule courbe « coup de pinceau » qui s'effile et descend vers
-   la bouche de Claudy. Forme = masque SVG ; la couleur vient de var(--frame) (donc
-   crème → rosé en needs_input, comme la bulle/bordure) → la queue « sort » du cadre. */
+/* Comic-style tail : curved "brushstroke" comma that tapers and descends toward
+   Claudy's mouth. Shape = SVG mask ; the color comes from var(--frame) (so
+   cream → pink in needs_input, like the bubble/border) → the tail "comes out" of the frame. */
 .bubble::after {
   content: "";
   position: absolute;
-  top: calc(100% - 6px); /* chevauche la bulle → fusion, pas de couture */
+  top: calc(100% - 6px); /* overlaps the bubble → merge, no seam */
   left: 50%;
   transform: translateX(-50%);
   width: 30px;
@@ -510,13 +548,13 @@ button.ghost {
   mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='14%200%2038%2044'%3E%3Cpath%20d='M16%202%20C%2030%205,%2046%205,%2050%202%20C%2042%2012,%2040%2026,%2033%2042%20C%2031%2027,%2024%2013,%2016%202%20Z'%20fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-/* Résumé de statut dans la barre du haut. */
+/* Status summary in the top bar. */
 .summary {
   display: inline-flex;
   align-items: center;
   gap: 9px;
 }
-/* Indicateur empilé : icône au-dessus, nombre dessous → mini-colonne étroite. */
+/* Stacked indicator : icon on top, number below → narrow mini-column. */
 .stat {
   display: inline-flex;
   flex-direction: column;
@@ -566,7 +604,7 @@ button.ghost {
   font-size: 13px;
 }
 
-/* Réservé aux lecteurs d'écran : hors écran mais lisible par les technologies d'assistance. */
+/* Screen-reader only : off-screen but readable by assistive technologies. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -598,12 +636,12 @@ button.ghost {
   flex: none;
 }
 
-/* ── Panneau de réglages (⚙) ──────────────────────────────────────────────────
-   <dialog> natif modal : centré, fond assombri via ::backdrop. Vanilla, sans dépendance. */
+/* ── Settings panel (⚙) ──────────────────────────────────────────────────
+   native modal <dialog> : centered, darkened background via ::backdrop. Vanilla, no dependency. */
 .settings {
   width: min(560px, 92vw);
   max-height: 86vh;
-  /* Colonne flex : la barre de titre et le pied restent fixes, le corps scrolle. */
+  /* Flex column : the title bar and footer stay fixed, the body scrolls. */
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -614,8 +652,8 @@ button.ghost {
   box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6);
   overflow: hidden;
 }
-/* Petit cadre (fenêtre flottante, écran réduit) : le panneau prend toute la place et
-   scrolle, pour que TOUS les réglages restent atteignables. */
+/* Small frame (floating window, reduced screen) : the panel takes all the space and
+   scrolls, so that ALL the settings stay reachable. */
 @media (max-width: 460px), (max-height: 560px) {
   .settings {
     width: 100vw;
@@ -653,7 +691,7 @@ button.ghost {
   padding: 6px 16px 12px;
   overflow-y: auto;
   flex: 1 1 auto;
-  min-height: 0; /* indispensable pour qu'un enfant flex puisse scroller */
+  min-height: 0; /* essential so a flex child can scroll */
 }
 .set-section {
   padding: 12px 0;
@@ -670,7 +708,7 @@ button.ghost {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap; /* sur cadre étroit : le contrôle passe sous le libellé au lieu de déborder */
+  flex-wrap: wrap; /* on a narrow frame : the control moves below the label instead of overflowing */
   gap: 8px 12px;
   padding: 7px 0;
 }
@@ -679,7 +717,7 @@ button.ghost {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  flex: 1 1 60%; /* prend la place, laisse le contrôle à droite (ou dessous si trop étroit) */
+  flex: 1 1 60%; /* takes the space, leaves the control on the right (or below if too narrow) */
   font-size: 13px;
   color: var(--ink);
 }
@@ -721,7 +759,7 @@ button.ghost {
 .set-input:disabled {
   opacity: 0.5;
 }
-/* Interrupteur (checkbox stylé). */
+/* Switch (styled checkbox). */
 .set-toggle {
   appearance: none;
   -webkit-appearance: none;

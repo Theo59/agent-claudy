@@ -1,18 +1,18 @@
 #!/usr/bin/env node
-// claudy-hook — pont entre les hooks de Claude Code et le serveur agent-claudy.
+// claudy-hook — bridge between Claude Code hooks and the agent-claudy server.
 //
-// Mode hybride : l'auto-découverte du serveur (lecture de ~/.claude/sessions)
-// gère working / idle / offline toute seule. Ce hook ne s'occupe donc QUE de
-// l'alerte rouge « needs_input » :
+// Hybrid mode: the server's auto-discovery (reading ~/.claude/sessions) handles
+// working / idle / offline on its own. This hook therefore deals ONLY with the
+// red "needs_input" alert:
 //
-//   Notification                                   → POSE l'alerte (l'agent te réclame)
-//   UserPromptSubmit / PreToolUse / Stop / SessionEnd → LÈVE l'alerte (tu as repris la main)
+//   Notification                                   → SETS the alert (the agent wants you)
+//   UserPromptSubmit / PreToolUse / Stop / SessionEnd → CLEARS the alert (you're back in control)
 //
-// Il ne bloque JAMAIS Claude (sort toujours en code 0).
+// It NEVER blocks Claude (always exits with code 0).
 
-// Sécurité : le hook est lancé AUTOMATIQUEMENT par Claude Code. On n'autorise donc
-// que des cibles LOCALES pour CLAUDY_URL → si la variable est détournée, on ne POST
-// pas l'état ailleurs (pas d'exfiltration). Toute valeur non-locale retombe sur le défaut.
+// Security: the hook is launched AUTOMATICALLY by Claude Code. We therefore only
+// allow LOCAL targets for CLAUDY_URL → if the variable is hijacked, we don't POST
+// the state elsewhere (no exfiltration). Any non-local value falls back to the default.
 const DEFAULT_URL = "http://127.0.0.1:4310";
 function localBase(raw) {
   if (!raw) return DEFAULT_URL;
@@ -42,27 +42,27 @@ function readStdin() {
     process.stdin.setEncoding("utf8");
     process.stdin.on("data", (c) => (data += c));
     process.stdin.on("end", () => resolve(data));
-    // Si rien n'arrive (hook lancé à la main), on ne bloque pas indéfiniment.
+    // If nothing arrives (hook run manually), don't block indefinitely.
     setTimeout(() => resolve(data), 500);
   });
 }
 
 async function main() {
-  // Garde-fou absolu : quoi qu'il arrive (stdin qui pend, fetch lent…),
-  // le hook se termine et ne gèle jamais la session Claude Code.
+  // Absolute safeguard: whatever happens (stdin hanging, slow fetch…),
+  // the hook terminates and never freezes the Claude Code session.
   setTimeout(() => process.exit(0), 2000).unref();
 
   let payload = {};
   try {
     payload = JSON.parse((await readStdin()) || "{}");
   } catch {
-    /* JSON absent/illisible : on continue avec les valeurs par défaut */
+    /* JSON missing/unreadable: carry on with the default values */
   }
 
   const event = payload.hook_event_name || process.argv[2] || "";
 
-  // Id stable par session, IDENTIQUE à celui de l'auto-découverte (server/discover.js)
-  // pour que l'alerte se pose sur la bonne tête. Les sous-agents partagent la session.
+  // Stable per-session id, IDENTICAL to the one from auto-discovery (server/discover.js)
+  // so the alert lands on the right head. Sub-agents share the session.
   const sessionId = payload.session_id || "claude";
   const id = `cc-${String(sessionId).slice(0, 8)}`;
 
@@ -74,7 +74,7 @@ async function main() {
   } else if (CLEAR_EVENTS.has(event)) {
     body = { clear: true };
   } else {
-    process.exit(0); // événement non pertinent pour l'alerte rouge
+    process.exit(0); // event not relevant to the red alert
   }
 
   const base = localBase(process.env.CLAUDY_URL);
@@ -83,11 +83,11 @@ async function main() {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
-      // Si le port est occupé par un process muet, on n'attend pas indéfiniment.
+      // If the port is held by a silent process, don't wait indefinitely.
       signal: AbortSignal.timeout(1000),
     });
   } catch {
-    /* serveur éteint : tant pis, on ne casse pas Claude */
+    /* server down: never mind, we don't break Claude */
   }
   process.exit(0);
 }

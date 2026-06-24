@@ -1,11 +1,11 @@
-// agent-claudy — panneau de réglages (⚙).
+// agent-claudy — settings panel (⚙).
 //
-// Lit la config du serveur (GET /api/config : schéma + valeurs + clés verrouillées par
-// l'env) et la pilote (PUT /api/config) sans toucher aux variables d'environnement.
-// Héberge aussi les commandes du mode démo (déplacées hors de la topbar).
+// Reads the server config (GET /api/config: schema + values + keys locked by the env)
+// and drives it (PUT /api/config) without touching environment variables.
+// Also hosts the demo-mode controls (moved out of the topbar).
 //
-// Ouvert par le bouton ⚙ ou par l'ancre #settings (utilisée par l'app menubar macOS).
-// Vanilla, zéro dépendance.
+// Opened by the ⚙ button or the #settings anchor (used by the macOS menubar app).
+// Vanilla, zero dependencies.
 
 (function () {
   "use strict";
@@ -16,10 +16,10 @@
   let statusEl = null;
   let meta = null; // { schema, values, overridden, path }
 
-  // Réutilise la marque partagée définie dans index.html (#claudy-mark).
+  // Reuses the shared mark defined in index.html (#claudy-mark).
   const GLASSES = '<svg aria-hidden="true"><use href="#claudy-mark"/></svg>';
 
-  // ── Échanges serveur ────────────────────────────────────────────────────────
+  // ── Server exchanges ─────────────────────────────────────────────────────────
   async function loadConfig() {
     const res = await fetch("/api/config");
     meta = await res.json();
@@ -35,7 +35,7 @@
       });
       meta = await res.json();
       flash("Enregistré ✓");
-      render(); // reflète valeurs normalisées + éventuels verrous
+      render(); // reflects normalized values + any locks
     } catch {
       flash("Échec de l'enregistrement", true);
     }
@@ -49,7 +49,7 @@
     }).catch(() => {});
   }
 
-  // ── Construction du panneau ──────────────────────────────────────────────────
+  // ── Panel construction ───────────────────────────────────────────────────────
   function build() {
     dialog = document.createElement("dialog");
     dialog.className = "settings";
@@ -65,7 +65,7 @@
     bodyEl = dialog.querySelector(".settings-body");
     statusEl = dialog.querySelector(".settings-status");
 
-    // Fermer en cliquant le fond (hors du contenu).
+    // Close by clicking the backdrop (outside the content).
     dialog.addEventListener("click", (e) => {
       if (e.target === dialog) dialog.close();
     });
@@ -82,7 +82,7 @@
     }, 1800);
   }
 
-  // Une ligne de réglage (label + contrôle + badges).
+  // A single settings row (label + control + badges).
   function optionRow(opt) {
     const value = meta.values[opt.key];
     const locked = meta.overridden.includes(opt.key);
@@ -109,13 +109,13 @@
       control.type = opt.type === "number" ? "number" : "text";
       control.className = "set-input";
       control.value = value;
-      // On commit au blur / Entrée (change), pas à chaque frappe.
+      // Commit on blur / Enter (change), not on every keystroke.
       control.addEventListener("change", () => {
         const v = opt.type === "number" ? Number(control.value) : control.value;
         put({ [opt.key]: v });
       });
     }
-    control.disabled = locked; // verrouillé par une variable d'env
+    control.disabled = locked; // locked by an environment variable
     row.appendChild(control);
     return row;
   }
@@ -131,7 +131,7 @@
     if (!meta) return;
     bodyEl.textContent = "";
 
-    // Réglages courants groupés (les options « avancées » vont dans un repli commun).
+    // Common settings, grouped (the "advanced" options go in a shared collapsible).
     const groups = new Map();
     const advanced = [];
     for (const opt of meta.schema) {
@@ -146,10 +146,10 @@
       bodyEl.appendChild(section(group, opts));
     }
 
-    // Mode démo (déplacé ici depuis la topbar).
+    // Demo mode (moved here from the topbar).
     bodyEl.appendChild(demoSection());
 
-    // Options avancées repliées.
+    // Collapsed advanced options.
     if (advanced.length) {
       const det = document.createElement("details");
       det.className = "set-advanced";
@@ -211,7 +211,7 @@
     return sec;
   }
 
-  // ── Ouverture / fermeture ────────────────────────────────────────────────────
+  // ── Open / close ─────────────────────────────────────────────────────────────
   function open() {
     if (!dialog) build();
     loadConfig();
@@ -220,7 +220,7 @@
 
   if (openBtn) openBtn.addEventListener("click", open);
 
-  // L'app menubar ouvre  http://…/#settings  → on déplie le panneau au chargement.
+  // The menubar app opens  http://…/#settings  → we unfold the panel on load.
   if (location.hash === "#settings") open();
   window.addEventListener("hashchange", () => {
     if (location.hash === "#settings") open();

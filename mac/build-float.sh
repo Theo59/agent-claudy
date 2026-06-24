@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# build-float.sh — compile la fenêtre flottante (claudy-float.swift) en
-# mac/agent-claudy-float.app. Nécessite swiftc (Command Line Tools).
+# build-float.sh — compiles the floating window (claudy-float.swift) into
+# mac/agent-claudy-float.app. Requires swiftc (Command Line Tools).
 
 set -euo pipefail
 

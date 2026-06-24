@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// claudy-mute-claude — coupe (et restaure) les notifications natives de Claude Code.
+// claudy-mute-claude — mutes (and restores) Claude Code's native notifications.
 //
-// Quand agent-claudy affiche déjà ses propres notifications, on évite le doublon en
-// basculant `preferredNotifChannel` de Claude Code sur "notifications_disabled".
-// (Le hook Notification continue de tourner → la notif Claudy s'affiche quand même.)
+// When agent-claudy already shows its own notifications, we avoid duplicates by
+// switching Claude Code's `preferredNotifChannel` to "notifications_disabled".
+// (The Notification hook keeps running → the Claudy notification still appears.)
 //
-//   node bin/claudy-mute-claude.js on      → coupe les notifs Claude (mémorise l'ancienne valeur)
-//   node bin/claudy-mute-claude.js off     → restaure la valeur d'origine
-//   node bin/claudy-mute-claude.js status  → affiche l'état courant
+//   node bin/claudy-mute-claude.js on      → mute Claude notifs (remembers the previous value)
+//   node bin/claudy-mute-claude.js off     → restore the original value
+//   node bin/claudy-mute-claude.js status  → show the current state
 //
-// Réversible et idempotent : la valeur d'origine est sauvegardée dans un sidecar.
-// Cible ~/.claude/settings.json (surchargeable via CLAUDY_CC_SETTINGS).
+// Reversible and idempotent: the original value is saved in a sidecar file.
+// Targets ~/.claude/settings.json (overridable via CLAUDY_CC_SETTINGS).
 
 import { readFile, writeFile, rm, rename } from "node:fs/promises";
 import { join } from "node:path";
@@ -28,9 +28,9 @@ async function readJson(p) {
   }
 }
 
-// Écriture atomique : on écrit dans un fichier temporaire du MÊME dossier puis on
-// rename (atomique sur le même système de fichiers) → jamais de settings.json
-// tronqué/corrompu même si une autre écriture survient en parallèle.
+// Atomic write: write to a temp file in the SAME directory, then rename
+// (atomic on the same filesystem) → settings.json is never left
+// truncated/corrupted even if another write happens concurrently.
 async function writeJsonAtomic(p, obj) {
   const tmp = `${p}.claudy.tmp`;
   await writeFile(tmp, JSON.stringify(obj, null, 2) + "\n");
@@ -49,7 +49,7 @@ async function main() {
   }
 
   if (cmd === "on") {
-    // Ne sauvegarde la valeur d'origine que si on n'est pas déjà coupé (idempotent).
+    // Only save the original value if we're not already muted (idempotent).
     if (current !== DISABLED) await writeFile(SIDECAR, current, "utf8");
     settings.preferredNotifChannel = DISABLED;
     await writeJsonAtomic(SETTINGS, settings);
@@ -62,7 +62,7 @@ async function main() {
     try {
       prev = (await readFile(SIDECAR, "utf8")).trim() || "auto";
     } catch {
-      /* pas de sidecar : on retombe sur "auto" (le défaut de Claude Code) */
+      /* no sidecar: fall back to "auto" (Claude Code's default) */
     }
     settings.preferredNotifChannel = prev;
     await writeJsonAtomic(SETTINGS, settings);

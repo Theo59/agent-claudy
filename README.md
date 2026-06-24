@@ -1,162 +1,161 @@
 # 👓 agent-claudy
 
-Visualiseur d'agents IA en **pixel art**. Chaque agent est une tête de **Claudy Focan**
-(*Dikkenek*) qui :
+A **pixel art** visualizer for AI agents. Each agent is a head of **Claudy Focan**
+(*Dikkenek*) who:
 
-- **parle** (bouche animée + ses répliques cultes) quand l'agent **travaille** ;
-- prend une **tête en attente** (atténuée) quand il a **fini** ;
-- **réclame ton attention** (bordure rouge pulsante + sa demande) quand il a besoin de toi.
+- **talks** (animated mouth + his cult one-liners) when the agent is **working**;
+- puts on a **waiting face** (dimmed) when it's **done**;
+- **demands your attention** (pulsing red border + his request) when it needs you.
 
-Tu peux afficher **autant de têtes que d'agents**. Ça tourne en local sur ton Mac, dans
-le navigateur (avec ou sans VSCode), **sans aucune dépendance npm**.
+You can display **as many heads as you have agents**. It runs locally on your Mac, in
+the browser (with or without VSCode), **with zero npm dependencies**.
 
-## Prérequis
+## Requirements
 
-- **Node.js ≥ 18** (`node --version`). Rien d'autre à installer.
+- **Node.js ≥ 18** (`node --version`). Nothing else to install.
 
-## Démarrage
+## Getting started
 
 ```bash
 npm start          # ou : node server/server.js
 ```
 
-Puis ouvre **http://127.0.0.1:4310**. Les sessions Claude Code en cours **apparaissent
-toutes seules** (voir [Découverte automatique](#découverte-automatique-des-sessions)). Sans
-session ouverte, ouvre **⚙ Réglages** (en haut à droite) → **Mode démo** pour voir les têtes
-s'animer.
+Then open **http://127.0.0.1:4310**. Running Claude Code sessions **show up on their
+own** (see [Automatic discovery](#automatic-session-discovery)). With no session open,
+open **⚙ Settings** (top right) → **Demo mode** to watch the heads come to life.
 
-Pour changer le port : `CLAUDY_PORT=5000 npm start`. Dans ce cas, **indique aussi
-l'URL au CLI et au hook** via `CLAUDY_URL`, sinon ils continuent de viser le port 4310 :
+To change the port: `CLAUDY_PORT=5000 npm start`. In that case, **also point the CLI and
+the hook to the URL** via `CLAUDY_URL`, otherwise they keep targeting port 4310:
 
 ```bash
 export CLAUDY_URL=http://127.0.0.1:5000
 ```
 
-## Configuration (panneau ⚙)
+## Configuration (panel ⚙)
 
-Tous les réglages se pilotent **depuis l'UI** : clique la **roue crantée** en haut à droite.
-Le panneau écrit `~/.config/claudy/config.json` (lu par le serveur) — plus besoin d'exporter
-des variables d'environnement. La **plupart des réglages s'appliquent à chaud** (découverte,
-sous-agents, cadence de scan, notifications…) ; `port`/`host` demandent un redémarrage (signalé).
+Every setting is driven **from the UI**: click the **gear icon** in the top right. The
+panel writes `~/.config/claudy/config.json` (read by the server) — no need to export
+environment variables anymore. **Most settings apply on the fly** (discovery, sub-agents,
+scan cadence, notifications…); `port`/`host` require a restart (flagged as such).
 
-**Précédence** : `défauts < config.json < variable d'environnement`. Une option forcée par une
-variable d'env (launchd, CLI, extension) **gagne** et apparaît **verrouillée** dans le panneau —
-l'ops garde la main. Le **mode démo** se pilote aussi depuis ce panneau.
+**Precedence**: `defaults < config.json < environment variable`. An option forced by an
+env variable (launchd, CLI, extension) **wins** and shows up **locked** in the panel —
+ops stays in control. **Demo mode** is also driven from this panel.
 
-> API : `GET /api/config` (schéma + valeurs + clés verrouillées), `PUT /api/config` (patch).
+> API: `GET /api/config` (schema + values + locked keys), `PUT /api/config` (patch).
 
-Le visage est un **pixel art dérivé d'une vraie photo** (fond détouré) pour la ressemblance.
-Pour le régénérer ou en essayer un autre, voir l'en-tête de `tools/derive-face.cjs`, puis
-remplace `public/face.png`.
+The face is **pixel art derived from a real photo** (background cut out) for the
+resemblance. To regenerate it or try another one, see the header of `tools/derive-face.cjs`,
+then replace `public/face.png`.
 
-## Dans VS Code (extension — recommandé)
+## In VS Code (extension — recommended)
 
-Pour ne pas jongler entre un terminal et un onglet de navigateur, agent-claudy est aussi
-une **extension VS Code** : les têtes s'affichent dans un panneau de l'éditeur et le serveur
-démarre tout seul.
+So you don't have to juggle a terminal and a browser tab, agent-claudy is also a
+**VS Code extension**: the heads show up in an editor panel and the server starts on its
+own.
 
-1. Ouvre ce dossier dans VS Code.
-2. Appuie sur **F5** (« Lancer agent-claudy (extension) ») : une fenêtre *Extension Development
-   Host* s'ouvre.
-3. Clique sur l'icône **agent-claudy** (lunettes + moustache) dans la barre d'activité à gauche.
+1. Open this folder in VS Code.
+2. Press **F5** ("Launch agent-claudy (extension)"): an *Extension Development Host*
+   window opens.
+3. Click the **agent-claudy** icon (glasses + mustache) in the activity bar on the left.
 
-Le serveur local démarre automatiquement (ou réutilise celui déjà lancé via `npm start`).
+The local server starts automatically (or reuses the one already running via `npm start`).
 
-**Barre d'état** (en bas à gauche) : `📣 Claudy 2▶ 1⏳ 1⁉` — nombre d'agents par état ;
-passe en **orange** dès qu'un agent réclame. Un clic ouvre le panneau.
+**Status bar** (bottom left): `📣 Claudy 2▶ 1⏳ 1⁉` — number of agents per state;
+turns **orange** as soon as an agent calls for you. A click opens the panel.
 
-**Commandes** (palette `⇧⌘P`, préfixe « agent-claudy ») :
+**Commands** (palette `⇧⌘P`, prefix "agent-claudy"):
 
-| Commande | Effet |
+| Command | Effect |
 | --- | --- |
-| Ouvrir le panneau | affiche les têtes dans la barre latérale |
-| Ouvrir dans le navigateur | ouvre l'UI dans le navigateur par défaut |
-| Démo (démarrer / arrêter) | bascule le mode démo |
-| Définir l'état d'un agent… | pousse un état à la main (test rapide) |
-| Redémarrer le serveur | relance le serveur local |
-| **Installer les hooks Claude Code** | écrit la config des hooks dans `~/.claude/settings.json` (avec sauvegarde `.bak`) |
+| Open the panel | shows the heads in the side bar |
+| Open in the browser | opens the UI in the default browser |
+| Demo (start / stop) | toggles demo mode |
+| Set an agent's state… | pushes a state by hand (quick test) |
+| Restart the server | restarts the local server |
+| **Install the Claude Code hooks** | writes the hook config into `~/.claude/settings.json` (with a `.bak` backup) |
 
-**Réglages** (`agentClaudy.*`) : `port` (4310), `autoStartServer` (true), `autoStartDemo` (false).
+**Settings** (`agentClaudy.*`): `port` (4310), `autoStartServer` (true), `autoStartDemo` (false).
 
-> Pour installer durablement l'extension (hors F5) : `vsce package` puis
+> To install the extension for good (outside F5): `vsce package` then
 > `code --install-extension agent-claudy-*.vsix`.
 
-## App menubar macOS (launcher)
+## macOS menubar app (launcher)
 
-Pour un usage quotidien sans VS Code, une petite **app de barre de menus** (lunettes 👓)
-sert de point d'entrée :
+For daily use without VS Code, a small **menu bar app** (glasses 👓) serves as the entry
+point:
 
 ```bash
 bash mac/build-bar.sh        # compile mac/agent-claudy.app (swiftc, zéro dépendance)
 open mac/agent-claudy.app
 ```
 
-Dans le menu (👓 en haut à droite) : **Démarrer le serveur** s'il est injoignable, la liste
-des agents (clic = focus de la fenêtre), **Réglages…** (ouvre le panneau ⚙), **Démo**, et un
-**Démarrer au login** (case à cocher : installe/retire le LaunchAgent via `mac/install-login.sh`).
-Le badge passe au **rouge** dès qu'un agent réclame.
+From the menu (👓 in the top right): **Start the server** if it's unreachable, the list
+of agents (click = focus the window), **Settings…** (opens the ⚙ panel), **Demo**, and a
+**Start at login** (checkbox: installs/removes the LaunchAgent via `mac/install-login.sh`).
+The badge turns **red** as soon as an agent calls for you.
 
-## États d'un agent
+## Agent states
 
-Chaque agent est une **case de BD** : une bulle façon bande dessinée en haut (sur toute la
-largeur de la case, queue pointant vers la tête), la **tête** de Claudy en dessous, et le nom.
-Le statut est donné par un **contour coloré qui épouse la silhouette** de la tête (pas un
-anneau rond). La réplique change lentement (le temps de lire). En `idle`/`offline`, pas de
-bulle : la case se réduit à la tête + le nom. Les cases s'adaptent au nombre d'agents et la
-barre du haut résume les statuts (`● 3  ◔ 1  ‼ 1`).
+Each agent is a **comic-strip panel**: a comic-book-style speech bubble at the top (spanning
+the full width of the panel, with a tail pointing toward the head), Claudy's **head** below,
+and the name. Status is shown by a **colored outline that hugs the silhouette** of the head
+(not a round ring). The line changes slowly (long enough to read). In `idle`/`offline`, no
+bubble: the panel shrinks to the head + the name. Panels adapt to the number of agents and
+the top bar summarizes the statuses (`● 3  ◔ 1  ‼ 1`).
 
-Quand une session lance des **sous-agents** (outil Agent/Task) ou un **workflow**, une rangée
-de **mini-têtes** apparaît sous la tête parente (essaim) — une par sous-agent actif, avec son
-type en infobulle. Un **clic sur une tête** ramène la fenêtre de l'agent (VS Code / terminal)
-au premier plan.
+When a session launches **sub-agents** (the Agent/Task tool) or a **workflow**, a row of
+**mini-heads** appears below the parent head (a swarm) — one per active sub-agent, with its
+type in a tooltip. A **click on a head** brings the agent's window (VS Code / terminal) to
+the foreground.
 
-| État          | Contour / tête                          | Déclencheur typique            |
+| State         | Outline / head                          | Typical trigger                |
 | ------------- | --------------------------------------- | ------------------------------ |
-| `working`     | contour vert (pulse) + hochement + citations | l'agent exécute une tâche |
-| `idle`        | contour gris, tête atténuée             | l'agent a terminé              |
-| `needs_input` | contour rouge clignotant + la demande en bulle | l'agent attend une réponse |
-| `offline`     | contour sombre, tête atténuée           | session terminée               |
+| `working`     | green outline (pulsing) + nodding + quotes | the agent is running a task |
+| `idle`        | gray outline, dimmed head               | the agent has finished         |
+| `needs_input` | blinking red outline + the request in a bubble | the agent is waiting for an answer |
+| `offline`     | dark outline, dimmed head               | session ended                  |
 
-## Découverte automatique des sessions
+## Automatic session discovery
 
-Par défaut, le serveur lit le **registre des sessions Claude Code** (`~/.claude/sessions/*.json`,
-un fichier par session, tenu à jour par Claude Code) toutes les ~2 s et affiche **une tête par
-session vivante**, sans aucune configuration :
+By default, the server reads the **Claude Code session registry** (`~/.claude/sessions/*.json`,
+one file per session, kept up to date by Claude Code) every ~2 s and displays **one head per
+live session**, with zero configuration:
 
-- `status: busy` → **working**, `status: idle` → **idle** ;
-- une session dont le **process est mort** disparaît automatiquement ;
-- le nom vient du registre (`name`) ou, à défaut, du dossier de travail (`cwd`).
+- `status: busy` → **working**, `status: idle` → **idle**;
+- a session whose **process is dead** disappears automatically;
+- the name comes from the registry (`name`) or, failing that, from the working directory (`cwd`).
 
-Seul l'état **`needs_input`** (alerte rouge « l'agent te réclame ») n'est pas dans le registre :
-il est fourni par le hook (voir [§ hooks](#3-alerte-rouge-needs_input-avec-les-hooks-de-claude-code)),
-qui se pose sur la même tête. C'est le **mode hybride**.
+Only the **`needs_input`** state (red alert "the agent is calling for you") isn't in the
+registry: it's provided by the hook (see [§ hooks](#3-red-alert-needs_input-with-claude-code-hooks)),
+which lands on the same head. This is the **hybrid mode**.
 
-Réglages : tout se pilote depuis le **panneau ⚙** (cf. [Configuration](#configuration-panneau-)),
-mais chaque réglage a aussi une **variable d'environnement** (qui l'emporte sur `config.json`) :
+Settings: everything is driven from the **⚙ panel** (see [Configuration](#configuration-panel-)),
+but each setting also has an **environment variable** (which takes precedence over `config.json`):
 
-| Variable | Effet | Défaut |
+| Variable | Effect | Default |
 | --- | --- | --- |
-| `CLAUDY_PORT` / `CLAUDY_HOST` | port / adresse d'écoute (redémarrage requis) | `4310` / `127.0.0.1` |
-| `CLAUDY_DISCOVER=0` | désactive la découverte (mode démo/CLI pur) | activée |
-| `CLAUDY_SUBAGENTS=0` | masque l'essaim de sous-agents | activé |
-| `CLAUDY_POLL_MS` | intervalle de scan (ms) | `2000` |
-| `CLAUDY_SUB_FRESH_MS` / `CLAUDY_SUB_MAX` | fraîcheur « actif » d'un sous-agent / max de mini-têtes | `25000` / `16` |
-| `CLAUDY_SESSIONS_DIR` / `CLAUDY_PROJECTS_DIR` | dossiers registre / transcripts | `~/.claude/sessions` · `~/.claude/projects` |
-| `CLAUDY_HIDE_SESSION` | `sessionId` complet à masquer | aucun |
-| `CLAUDY_NOTIFY=0` / `CLAUDY_NOTIFY_SOUND=0` | coupe les notifications macOS / leur son | activées |
-| `CLAUDY_MUTE_CC=1` | coupe les notifs natives de Claude Code (anti-doublon) tant que le serveur tourne | désactivé |
-| `CLAUDY_OVERRIDE_TTL_MS` | expiration d'une alerte `needs_input` non levée (ms) | `600000` |
-| `CLAUDY_CONFIG` | chemin du fichier de config | `~/.config/claudy/config.json` |
-| `CLAUDY_CC_SETTINGS` | chemin des réglages Claude Code (pour l'anti-doublon) | `~/.claude/settings.json` |
+| `CLAUDY_PORT` / `CLAUDY_HOST` | listening port / address (restart required) | `4310` / `127.0.0.1` |
+| `CLAUDY_DISCOVER=0` | disables discovery (demo/pure-CLI mode) | enabled |
+| `CLAUDY_SUBAGENTS=0` | hides the sub-agent swarm | enabled |
+| `CLAUDY_POLL_MS` | scan interval (ms) | `2000` |
+| `CLAUDY_SUB_FRESH_MS` / `CLAUDY_SUB_MAX` | "active" freshness window for a sub-agent / max mini-heads | `25000` / `16` |
+| `CLAUDY_SESSIONS_DIR` / `CLAUDY_PROJECTS_DIR` | registry / transcripts folders | `~/.claude/sessions` · `~/.claude/projects` |
+| `CLAUDY_HIDE_SESSION` | full `sessionId` to hide | none |
+| `CLAUDY_NOTIFY=0` / `CLAUDY_NOTIFY_SOUND=0` | turns off macOS notifications / their sound | enabled |
+| `CLAUDY_MUTE_CC=1` | mutes Claude Code's native notifications (anti-duplicate) while the server is running | disabled |
+| `CLAUDY_OVERRIDE_TTL_MS` | expiry of an uncleared `needs_input` alert (ms) | `600000` |
+| `CLAUDY_CONFIG` | path to the config file | `~/.config/claudy/config.json` |
+| `CLAUDY_CC_SETTINGS` | path to the Claude Code settings (for anti-duplicate) | `~/.claude/settings.json` |
 
-> Sécurité : le serveur n'accepte que les requêtes **loopback** (Host `127.0.0.1`/`localhost`) et
-> refuse toute origine cross-site — un site web visité ne peut pas piloter ton agent-claudy local.
+> Security: the server only accepts **loopback** requests (Host `127.0.0.1`/`localhost`) and
+> rejects any cross-site origin — a website you visit can't drive your local agent-claudy.
 
-## Brancher tes agents (manuellement)
+## Wiring up your agents (manually)
 
-Pour des agents **hors Claude Code** (scripts, autres outils), trois façons de remonter l'état.
+For agents **outside Claude Code** (scripts, other tools), three ways to report state.
 
-### 1. En ligne de commande (`claudy-report`)
+### 1. From the command line (`claudy-report`)
 
 ```bash
 node bin/claudy-report.js mon-agent working --name "Crawler"
@@ -165,7 +164,7 @@ node bin/claudy-report.js mon-agent idle
 node bin/claudy-report.js mon-agent --delete
 ```
 
-### 2. Via l'API HTTP (depuis n'importe quel langage)
+### 2. Via the HTTP API (from any language)
 
 ```bash
 curl -X POST http://127.0.0.1:4310/api/agents/mon-agent \
@@ -173,37 +172,37 @@ curl -X POST http://127.0.0.1:4310/api/agents/mon-agent \
   -d '{"name":"Builder","state":"working"}'
 ```
 
-| Méthode  | Route                  | Effet                                         |
+| Method   | Route                  | Effect                                        |
 | -------- | ---------------------- | --------------------------------------------- |
-| `GET`    | `/api/events`          | flux SSE temps réel (utilisé par l'UI)        |
-| `GET`    | `/api/agents`          | liste JSON des agents                         |
-| `POST`   | `/api/agents/:id`      | crée/maj `{name?, state?, quote?, request?}`  |
-| `DELETE` | `/api/agents/:id`      | retire l'agent                                |
-| `POST`   | `/api/notify/:id`      | alerte rouge : `{request?, name?}` (ou `{clear:true}`) |
-| `DELETE` | `/api/notify/:id`      | lève l'alerte rouge                           |
-| `GET`    | `/api/quotes`          | les citations de Claudy Focan                 |
+| `GET`    | `/api/events`          | real-time SSE stream (used by the UI)         |
+| `GET`    | `/api/agents`          | JSON list of agents                           |
+| `POST`   | `/api/agents/:id`      | create/update `{name?, state?, quote?, request?}` |
+| `DELETE` | `/api/agents/:id`      | removes the agent                             |
+| `POST`   | `/api/notify/:id`      | red alert: `{request?, name?}` (or `{clear:true}`) |
+| `DELETE` | `/api/notify/:id`      | clears the red alert                          |
+| `GET`    | `/api/quotes`          | Claudy Focan's quotes                         |
 | `POST`   | `/api/demo`            | `{action:"start"\|"stop", count?}`            |
-| `GET`    | `/api/config`          | schéma + valeurs + clés verrouillées par l'env |
-| `PUT`    | `/api/config`          | applique un patch de config (écrit `config.json`) |
-| `POST`   | `/api/focus/:id`       | ramène la fenêtre de l'agent au premier plan (macOS) |
+| `GET`    | `/api/config`          | schema + values + keys locked by the env      |
+| `PUT`    | `/api/config`          | applies a config patch (writes `config.json`) |
+| `POST`   | `/api/focus/:id`       | brings the agent's window to the foreground (macOS) |
 
-### 3. Alerte rouge `needs_input` avec les hooks de Claude Code
+### 3. Red alert `needs_input` with Claude Code hooks
 
-La [découverte automatique](#découverte-automatique-des-sessions) gère déjà `working` /
-`idle` / `offline`. Le hook `bin/claudy-hook.js` ne sert plus qu'à **l'alerte rouge** : il
-pose / lève l'état `needs_input` sur la tête de la session (même id que la découverte).
+[Automatic discovery](#automatic-session-discovery) already handles `working` / `idle` /
+`offline`. The `bin/claudy-hook.js` hook is now only used for **the red alert**: it sets /
+clears the `needs_input` state on the session's head (same id as discovery).
 
-| Événement Claude Code                               | Effet sur l'alerte rouge |
+| Claude Code event                                   | Effect on the red alert  |
 | --------------------------------------------------- | ------------------------ |
-| `Notification`                                      | **pose** `needs_input`   |
-| `UserPromptSubmit` / `PreToolUse` / `PostToolUse` / `Stop` / `SubagentStop` / `SessionEnd` | **lève** l'alerte |
+| `Notification`                                      | **sets** `needs_input`   |
+| `UserPromptSubmit` / `PreToolUse` / `PostToolUse` / `Stop` / `SubagentStop` / `SessionEnd` | **clears** the alert |
 
-Le plus simple : dans VS Code, lance la commande **« agent-claudy : Installer les hooks
-Claude Code »** (elle écrit la config automatiquement, avec sauvegarde `.bak`). Sinon,
-copie `hooks/settings.example.json` dans `~/.claude/settings.json` (en fusionnant) et
-remplace `ABSOLUTE_PATH` par le chemin de ce projet. Le hook **ne bloque jamais** Claude :
-si le serveur est éteint ou lent, il échoue silencieusement (timeout 1 s + garde-fou).
-Sans hook installé, tout marche quand même — il ne manque que l'alerte rouge.
+The simplest way: in VS Code, run the command **"agent-claudy: Install the Claude Code
+hooks"** (it writes the config automatically, with a `.bak` backup). Otherwise, copy
+`hooks/settings.example.json` into `~/.claude/settings.json` (merging) and replace
+`ABSOLUTE_PATH` with the path to this project. The hook **never blocks** Claude: if the
+server is down or slow, it fails silently (1 s timeout + safeguard). Without the hook
+installed, everything still works — you just lose the red alert.
 
 ## Structure
 
@@ -234,9 +233,9 @@ agent-claudy/
 └── data/quotes.json         # les répliques cultes (source unique)
 ```
 
-## Crédits
+## Credits
 
-Répliques de **Claudy Focan** (*Dikkenek*, 2006), incarné par François Damiens.
-Citations : <https://phraseculte.wordpress.com/2017/05/30/claudy-focan-dikkenek/>
+Lines from **Claudy Focan** (*Dikkenek*, 2006), played by François Damiens.
+Quotes: <https://phraseculte.wordpress.com/2017/05/30/claudy-focan-dikkenek/>
 
 > « Éducation minimum ! »

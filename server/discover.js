@@ -1,68 +1,68 @@
-// agent-claudy — auto-découverte des sessions Claude Code.
+// agent-claudy — auto-discovery of Claude Code sessions.
 //
-// Claude Code tient un registre des sessions dans  ~/.claude/sessions/<PID>.json
-// (un fichier par session, mis à jour en continu) :
+// Claude Code keeps a registry of sessions in  ~/.claude/sessions/<PID>.json
+// (one file per session, continuously updated):
 //   { pid, sessionId, cwd, status: "busy"|"idle"|"waiting", waitingFor?, version, name?, ... }
 //
-// Ce module lit ce dossier périodiquement, ne garde que les sessions dont le PID
-// est encore vivant, et expose la liste au serveur. Zéro dépendance (fs/os natifs).
+// This module reads that folder periodically, keeps only the sessions whose PID
+// is still alive, and exposes the list to the server. Zero dependencies (native fs/os).
 //
-//   busy → working   |   waiting → needs_input   |   idle → idle   |   PID mort → tête retirée
+//   busy → working   |   waiting → needs_input   |   idle → idle   |   dead PID → head removed
 //
-// Activité courante : pour une session active, on lit la QUEUE du transcript
-// (~/.claude/projects/<cwd encodé>/<sessionId>.jsonl) pour en extraire le dernier
-// outil utilisé + le modèle, mémoïsés par mtime (cf. latestActivity).
+// Current activity: for an active session, we read the TAIL of the transcript
+// (~/.claude/projects/<encoded cwd>/<sessionId>.jsonl) to extract the last tool
+// used + the model, memoized by mtime (see latestActivity).
 //
-// Sous-agents (essaim) : pour chaque session vivante en travail, Claude Code écrit
-// un transcript par sous-agent dans
-//   ~/.claude/projects/<cwd encodé>/<sessionId>/subagents/agent-<id>.jsonl
-// (et, pour les workflows, …/subagents/workflows/wf_<id>/agent-<id>.jsonl).
-// Un fichier au mtime frais = sous-agent encore actif ; figé = terminé. Le type
-// d'agent (ex. "Explore", "claude-code-guide") se lit via "attributionAgent" dans
-// le fichier, sans relire le (gros) transcript parent.
+// Subagents (swarm): for each live working session, Claude Code writes one
+// transcript per subagent in
+//   ~/.claude/projects/<encoded cwd>/<sessionId>/subagents/agent-<id>.jsonl
+// (and, for workflows, …/subagents/workflows/wf_<id>/agent-<id>.jsonl).
+// A file with a fresh mtime = subagent still active; frozen = finished. The agent
+// type (e.g. "Explore", "claude-code-guide") is read via "attributionAgent" in
+// the file, without re-reading the (large) parent transcript.
 //
-// Tous les réglages (dossiers, cadence, sous-agents, masquage…) viennent désormais
-// de la couche de config centrale (server/config.js) et s'appliquent À CHAUD : on les
-// relit à chaque scan plutôt que de les figer au chargement.
+// All settings (folders, cadence, subagents, hiding…) now come from the central
+// config layer (server/config.js) and apply LIVE: we re-read them on every scan
+// rather than freezing them at load time.
 
 import { readdir, readFile, stat, open } from "node:fs/promises";
 import { join } from "node:path";
 import * as config from "./config.js";
 
-// L'id doit coïncider avec celui du hook (bin/claudy-hook.js) pour que l'alerte
-// rouge "needs_input" se pose sur la même tête.
+// The id must match the one from the hook (bin/claudy-hook.js) so that the red
+// "needs_input" alert lands on the same head.
 function shortId(sessionId) {
   return `cc-${String(sessionId).slice(0, 8)}`;
 }
 
-// Claude Code expose plusieurs statuts. Historiquement seuls "busy"/"idle"
-// existaient ; les versions récentes (≥ 2.1.187) ajoutent "waiting" : le main loop
-// est bloqué sur un dialog / une réponse utilisateur (champ `waitingFor`), souvent
-// PENDANT qu'un workflow tourne en tâche de fond. On mappe :
+// Claude Code exposes several statuses. Historically only "busy"/"idle"
+// existed; recent versions (≥ 2.1.187) add "waiting": the main loop is
+// blocked on a dialog / user response (`waitingFor` field), often WHILE a
+// workflow runs in the background. We map:
 //   busy    → working
-//   waiting → needs_input  (l'agent réclame une réponse — tête rouge)
-//   reste   → idle (neutre)
+//   waiting → needs_input  (the agent is asking for a response — red head)
+//   rest    → idle (neutral)
 function mapStatus(status) {
   if (status === "busy") return "working";
   if (status === "waiting") return "needs_input";
   return "idle";
 }
 
-// Une session est « active » (susceptible de faire tourner un essaim de sous-agents
-// / workflows) tant qu'elle n'est pas franchement idle. Un workflow en arrière-plan
-// continue d'écrire ses transcripts même quand le parent attend un dialog ("waiting").
+// A session is "active" (likely to be running a swarm of subagents / workflows)
+// as long as it is not fully idle. A background workflow keeps writing its
+// transcripts even when the parent is waiting on a dialog ("waiting").
 function isActive(status) {
   return status === "busy" || status === "waiting";
 }
 
-// Un PID est-il vivant ? Le signal 0 teste l'existence sans rien tuer.
+// Is a PID alive? Signal 0 tests for existence without killing anything.
 function isAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
     return true;
   } catch (err) {
-    return err.code === "EPERM"; // existe mais appartient à un autre user → vivant
+    return err.code === "EPERM"; // exists but owned by another user → alive
   }
 }
 
@@ -75,25 +75,25 @@ function nameFor(meta) {
   return base || "claude";
 }
 
-// Claude Code encode le cwd en remplaçant les "/" par des "-" pour nommer le dossier
-// de transcripts. Ex. /chemin/vers/projet → -chemin-vers-projet.
+// Claude Code encodes the cwd by replacing "/" with "-" to name the transcripts
+// folder. E.g. /path/to/project → -path-to-project.
 function encodeProjectDir(cwd) {
   return String(cwd).replace(/\//g, "-");
 }
 
-// Un sessionId sert à construire des chemins de fichiers → on n'accepte qu'un identifiant
-// simple (hex/tirets/underscore), ce qui exclut "/" et ".." : pas de traversée de répertoire.
+// A sessionId is used to build file paths → we only accept a simple identifier
+// (hex/dashes/underscore), which excludes "/" and "..": no directory traversal.
 function isSafeId(id) {
   return typeof id === "string" && /^[A-Za-z0-9_-]+$/.test(id);
 }
 
-// Plafonne un cache (Map) en évinçant les entrées les plus anciennes (ordre d'insertion).
+// Caps a cache (Map) by evicting the oldest entries (insertion order).
 function capCache(map, max) {
   while (map.size > max) map.delete(map.keys().next().value);
 }
 
-// Lit le début d'un fichier sans le charger en entier (les transcripts font des centaines
-// de Ko ; on ne veut que les premières lignes pour le libellé).
+// Reads the beginning of a file without loading it whole (transcripts are hundreds
+// of KB; we only want the first lines for the label).
 async function readHead(path, bytes = 65536) {
   let fh;
   try {
@@ -106,8 +106,8 @@ async function readHead(path, bytes = 65536) {
   }
 }
 
-// Lit la FIN d'un fichier sans le charger en entier (les transcripts font plusieurs
-// Mo ; on ne veut que les dernières lignes pour connaître l'activité courante).
+// Reads the END of a file without loading it whole (transcripts are several
+// MB; we only want the last lines to know the current activity).
 async function readTail(path, bytes = 65536) {
   let fh;
   try {
@@ -123,18 +123,25 @@ async function readTail(path, bytes = 65536) {
   }
 }
 
-// Activité courante d'une session = dernier outil utilisé + modèle, lus dans la queue
-// du transcript (~64 Ko). Mémoïsé par mtime : on ne re-parse que si le fichier a bougé.
-// Renvoie { tool, model } ou null. `tool` est le nom brut (le frontend le met en forme).
+// Path of a session's main transcript.
+function transcriptPath(cwd, sessionId, cfg) {
+  return join(cfg.projectsDir, encodeProjectDir(cwd), `${sessionId}.jsonl`);
+}
+
+// Current activity of a session, read from the TAIL of the transcript (~64 KB),
+// memoized by mtime (we only re-parse if the file has changed). Returns
+//   { tool, model, mode }  or null
+// `tool` = raw name of the last tool; `model` = last model; `mode` = last
+// `permissionMode` (plan / acceptEdits / auto / default). The frontend formats it.
 const activityCache = new Map(); // transcriptPath -> { mtimeMs, value }
 async function latestActivity(cwd, sessionId, cfg) {
   if (!isSafeId(sessionId)) return null;
-  const path = join(cfg.projectsDir, encodeProjectDir(cwd), `${sessionId}.jsonl`);
+  const path = transcriptPath(cwd, sessionId, cfg);
   let mtimeMs;
   try {
     mtimeMs = (await stat(path)).mtimeMs;
   } catch {
-    return null; // pas de transcript (session distante / dossier custom)
+    return null; // no transcript (remote session / custom folder)
   }
   const cached = activityCache.get(path);
   if (cached && cached.mtimeMs === mtimeMs) return cached.value;
@@ -143,13 +150,14 @@ async function latestActivity(cwd, sessionId, cfg) {
   try {
     const tail = await readTail(path);
     const lines = tail.split("\n");
-    // Le tail commence presque toujours au milieu d'une ligne (offset arbitraire) :
-    // la 1re « ligne » est un fragment JSON invalide → on la jette. (Si le transcript
-    // tient en entier dans les 64 Ko, on a lu depuis l'octet 0 : 1re ligne complète.)
+    // The tail almost always starts in the middle of a line (arbitrary offset):
+    // the 1st "line" is an invalid JSON fragment → we discard it. (If the transcript
+    // fits entirely in 64 KB, we read from byte 0: 1st line is complete.)
     if (tail.length >= 65536) lines.shift();
     let tool = null;
     let model = null;
-    // On parcourt de la fin vers le début : 1er tool_use rencontré = le plus récent.
+    let mode = null;
+    // We iterate from the end toward the start: 1st value found = the most recent.
     for (let i = lines.length - 1; i >= 0; i--) {
       const line = lines[i];
       if (!line) continue;
@@ -159,6 +167,7 @@ async function latestActivity(cwd, sessionId, cfg) {
       } catch {
         continue;
       }
+      if (!mode && o.permissionMode) mode = o.permissionMode;
       const msg = o?.message;
       if (!msg) continue;
       if (!model && msg.model) model = msg.model;
@@ -166,21 +175,81 @@ async function latestActivity(cwd, sessionId, cfg) {
         const t = msg.content.find((b) => b?.type === "tool_use");
         if (t?.name) tool = t.name;
       }
-      if (tool && model) break;
+      if (tool && model && mode) break;
     }
-    if (tool || model) value = { tool, model };
+    if (tool || model || mode) value = { tool, model, mode };
   } catch {
-    /* illisible : on garde value = null */
+    /* unreadable: we keep value = null */
   }
   activityCache.set(path, { mtimeMs, value });
   capCache(activityCache, 2000);
   return value;
 }
 
-// Libellé d'un sous-agent = son type ("attributionAgent", ex. "Explore",
-// "claude-code-guide"), à défaut un extrait de son prompt, à défaut un id court.
-// Mémoïsé : le type définitif n'est lu qu'une fois (final=true) ; un libellé
-// provisoire (extrait de prompt) est ré-essayé tant que le type n'est pas apparu.
+// Current effort level of the session (low/medium/high/xhigh/max/ultracode), set by
+// the /effort command. It PERSISTS and may have been defined very early (outside the
+// tail read for activity) → we follow the transcript INCREMENTALLY: 1st pass = one
+// full read, then we only re-read the appended bytes (JSONL only appends complete
+// lines). A structured marker, immune to pollution from tool outputs: a message
+// whose `content` is the STRING
+//   "<local-command-stdout>Set effort level to <X> ...</local-command-stdout>"
+// (a tool result has an array-type content → discarded). Returns the value or null.
+const effortCache = new Map(); // transcriptPath -> { size, effort }
+const EFFORT_RE = /<local-command-stdout>Set effort level to (\w+)/;
+function scanEffort(text, current) {
+  let effort = current;
+  for (const line of text.split("\n")) {
+    if (!line.includes("Set effort level to")) continue; // cheap pre-filter
+    let o;
+    try {
+      o = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const c = o?.message?.content;
+    if (typeof c !== "string") continue; // tool_result (content = array) → ignored
+    const m = c.match(EFFORT_RE);
+    if (m) effort = m[1]; // keep the LAST value (the most recent)
+  }
+  return effort;
+}
+async function sessionEffort(cwd, sessionId, cfg) {
+  if (!isSafeId(sessionId)) return null;
+  const path = transcriptPath(cwd, sessionId, cfg);
+  let size;
+  try {
+    size = (await stat(path)).size;
+  } catch {
+    return null;
+  }
+  const cached = effortCache.get(path);
+  if (cached && cached.size === size) return cached.effort;
+
+  // Delta only if the file grew compared to the last scan; otherwise (1st
+  // pass, or truncated/rewritten file) we re-read from the start.
+  const from = cached && size > cached.size ? cached.size : 0;
+  let effort = cached?.effort ?? null;
+  let fh;
+  try {
+    fh = await open(path, "r");
+    const len = size - from;
+    const buf = Buffer.alloc(len);
+    const { bytesRead } = await fh.read(buf, 0, len, from);
+    effort = scanEffort(buf.subarray(0, bytesRead).toString("utf8"), effort);
+  } catch {
+    /* unreadable: we keep the known value */
+  } finally {
+    await fh?.close();
+  }
+  effortCache.set(path, { size, effort });
+  capCache(effortCache, 2000);
+  return effort;
+}
+
+// A subagent's label = its type ("attributionAgent", e.g. "Explore",
+// "claude-code-guide"), failing that an excerpt of its prompt, failing that a short id.
+// Memoized: the definitive type is read only once (final=true); a provisional
+// label (prompt excerpt) is retried until the type has appeared.
 const labelCache = new Map(); // agentId -> { label, final }
 async function labelForSubagent(path, agentId) {
   const cached = labelCache.get(agentId);
@@ -188,7 +257,7 @@ async function labelForSubagent(path, agentId) {
   capCache(labelCache, 4000);
   let label = null;
   let final = false;
-  // Voie rapide : le « <agent>.meta.json » (33 octets) porte le type d'agent.
+  // Fast path: the "<agent>.meta.json" (33 bytes) carries the agent type.
   try {
     const metaTxt = await readFile(path.replace(/\.jsonl$/, ".meta.json"), "utf8");
     const t = JSON.parse(metaTxt)?.agentType;
@@ -197,7 +266,7 @@ async function labelForSubagent(path, agentId) {
       return t;
     }
   } catch {
-    /* pas de meta.json : on retombe sur la lecture de l'en-tête du transcript */
+    /* no meta.json: we fall back to reading the transcript header */
   }
   try {
     const head = await readHead(path);
@@ -214,15 +283,15 @@ async function labelForSubagent(path, agentId) {
       if (clean) label = clean.slice(0, 42);
     }
   } catch {
-    /* fichier en cours d'écriture / illisible : on retombe sur l'id */
+    /* file being written / unreadable: we fall back to the id */
   }
   label = label || (cached?.label ?? `sub-${agentId.slice(0, 6)}`);
   labelCache.set(agentId, { label, final });
   return label;
 }
 
-// Lit un journal de workflow (wf_*/journal.jsonl) : événements `started` (l'agent a
-// démarré) et `result` (l'agent a fini AVEC SUCCÈS). On en déduit succès vs échec.
+// Reads a workflow journal (wf_*/journal.jsonl): `started` events (the agent has
+// started) and `result` events (the agent finished SUCCESSFULLY). We infer success vs failure.
 async function readWorkflowJournal(dir) {
   const started = new Set();
   const results = new Set();
@@ -243,18 +312,18 @@ async function readWorkflowJournal(dir) {
       else if (o.type === "result" && o.agentId) results.add(o.agentId);
     }
   } catch {
-    /* pas de journal (ou illisible) : workflow sans suivi de résultat */
+    /* no journal (or unreadable): workflow without result tracking */
   }
   return { started, results, mtimeMs };
 }
 
-// Rassemble l'essaim d'une session, avec un STATUT par tête :
-//   - hors workflow : on ne montre que les sous-agents ACTIFS (status "working") ;
-//   - dans un workflow : on montre TOUTES les têtes du run en cours, colorées via le
-//     journal — "done" (a un result), "failed" (démarré, figé, sans result), "working"
-//     (fichier frais, pas encore de result). Un workflow n'est affiché que tant qu'il
-//     est « vivant » (journal récent ou au moins une tête active).
-// Renvoie { children, swarm } où swarm résume la progression (ou null si pas de workflow).
+// Gathers a session's swarm, with a STATUS per head:
+//   - outside a workflow: we only show ACTIVE subagents (status "working");
+//   - inside a workflow: we show ALL heads of the current run, colored via the
+//     journal — "done" (has a result), "failed" (started, frozen, no result), "working"
+//     (fresh file, no result yet). A workflow is only shown while it is
+//     "alive" (recent journal or at least one active head).
+// Returns { children, swarm } where swarm summarizes the progress (or null if no workflow).
 async function gatherSwarm(cwd, sessionId, nowMs, cfg) {
   if (!isSafeId(sessionId)) return { children: [], swarm: null };
   const root = join(cfg.projectsDir, encodeProjectDir(cwd), sessionId, "subagents");
@@ -286,7 +355,7 @@ async function gatherSwarm(cwd, sessionId, nowMs, cfg) {
           if (!wfDirs.has(wfId)) wfDirs.set(wfId, { dir: wfDir, agents: [] });
           wfDirs.get(wfId).agents.push(rec);
         } else if (nowMs - st.mtimeMs <= cfg.subFreshMs) {
-          direct.push(rec); // hors workflow : actifs seulement
+          direct.push(rec); // outside a workflow: active only
         }
       }
     }
@@ -296,7 +365,7 @@ async function gatherSwarm(cwd, sessionId, nowMs, cfg) {
   const children = [];
   let swarm = null;
 
-  // Sous-agents directs (hors workflow) : tous "working" (on n'a pas de succès/échec).
+  // Direct subagents (outside a workflow): all "working" (we have no success/failure).
   for (const r of direct.sort((a, b) => b.mtimeMs - a.mtimeMs)) {
     children.push({
       id: `sub-${r.agentId.slice(0, 8)}`,
@@ -307,20 +376,20 @@ async function gatherSwarm(cwd, sessionId, nowMs, cfg) {
     });
   }
 
-  // Workflows : on lit le journal et on colore chaque tête.
-  //   - done   : l'agent a un `result` dans le journal (succès avéré) ;
-  //   - working: pas (encore) de result ALORS QUE le workflow est vivant (journal qui
-  //              écrit encore) → il tourne / réfléchit, même si son fichier est figé ;
-  //   - failed : pas de result ET le workflow est TERMINÉ (journal figé) → l'agent n'a
-  //              jamais rendu sa valeur (tué / interrompu). On n'accuse l'échec qu'une
-  //              fois le run fini, pour ne pas rougir un agent encore en réflexion.
-  const LIVE_WINDOW = cfg.subFreshMs + 30000; // un workflow fini reste affiché ~30 s
+  // Workflows: we read the journal and color each head.
+  //   - done   : the agent has a `result` in the journal (confirmed success);
+  //   - working: no result (yet) WHILE the workflow is alive (journal still
+  //              writing) → it is running / thinking, even if its file is frozen;
+  //   - failed : no result AND the workflow is FINISHED (frozen journal) → the agent
+  //              never returned its value (killed / interrupted). We only declare failure
+  //              once the run is over, so as not to redden an agent still thinking.
+  const LIVE_WINDOW = cfg.subFreshMs + 30000; // a finished workflow stays shown ~30 s
   for (const [wfId, grp] of wfDirs) {
     const { results, mtimeMs } = await readWorkflowJournal(grp.dir);
     const anyFresh = grp.agents.some((a) => nowMs - a.mtimeMs <= cfg.subFreshMs);
-    const journalLive = mtimeMs > 0 && nowMs - mtimeMs <= cfg.subFreshMs; // écrit récemment
+    const journalLive = mtimeMs > 0 && nowMs - mtimeMs <= cfg.subFreshMs; // recently written
     const recent = mtimeMs > 0 && nowMs - mtimeMs <= LIVE_WINDOW;
-    if (!journalLive && !recent && !anyFresh) continue; // run terminé depuis longtemps → masqué
+    if (!journalLive && !recent && !anyFresh) continue; // run finished long ago → hidden
 
     let done = 0;
     let failed = 0;
@@ -331,11 +400,11 @@ async function gatherSwarm(cwd, sessionId, nowMs, cfg) {
         status = "done";
         done++;
       } else if (journalLive || nowMs - a.mtimeMs <= cfg.subFreshMs) {
-        // workflow vivant (ou agent qui écrit encore) → considéré en cours.
+        // workflow alive (or agent still writing) → considered in progress.
         status = "working";
         working++;
       } else {
-        status = "failed"; // workflow terminé, jamais de result → échec/interruption.
+        status = "failed"; // workflow finished, never a result → failure/interruption.
         failed++;
       }
       children.push({
@@ -365,7 +434,7 @@ export function createDiscovery({ onChange } = {}) {
   let warned = false;
 
   function publish(next) {
-    // Signature stable : on ne notifie le serveur que si l'affichage change vraiment.
+    // Stable signature: we only notify the server if the display actually changes.
     const sig = [...next.values()]
       .map((a) => {
         const kids = (a.children || [])
@@ -374,7 +443,7 @@ export function createDiscovery({ onChange } = {}) {
           .join(",");
         const sw = a.swarm ? `${a.swarm.done}/${a.swarm.failed}/${a.swarm.working}/${a.swarm.total}` : "";
         const act = a.activity ? `${a.activity.tool || ""}@${a.activity.model || ""}` : "";
-        return `${a.id}:${a.state}:${a.name}:${kids}+${a.childExtra || 0}#${sw}~${act}|${a.waitingFor || ""}`;
+        return `${a.id}:${a.state}:${a.name}:${kids}+${a.childExtra || 0}#${sw}~${act}|${a.waitingFor || ""}^${a.mode || ""}*${a.effort || ""}`;
       })
       .sort()
       .join("|");
@@ -387,15 +456,15 @@ export function createDiscovery({ onChange } = {}) {
 
   async function scanOnce() {
     const cfg = config.get();
-    // Découverte coupée (réglage à chaud) : on n'affiche aucune session.
+    // Discovery turned off (live setting): we display no session.
     if (!cfg.discover) return publish(new Map());
 
     let files;
     try {
       files = await readdir(cfg.sessionsDir);
     } catch (err) {
-      // Dossier absent (pas de Claude Code, ou chemin custom) : on n'affiche rien
-      // mais on ne casse pas le serveur. Averti une seule fois.
+      // Folder absent (no Claude Code, or custom path): we display nothing
+      // but we don't break the server. Warned only once.
       if (!warned) {
         warned = true;
         console.warn(
@@ -413,7 +482,7 @@ export function createDiscovery({ onChange } = {}) {
       try {
         meta = JSON.parse(await readFile(join(cfg.sessionsDir, f), "utf8"));
       } catch {
-        continue; // fichier en cours d'écriture / illisible : ignoré ce tour-ci
+        continue; // file being written / unreadable: ignored this round
       }
       if (!meta || typeof meta !== "object" || !meta.sessionId) continue;
       if (!isAlive(meta.pid)) continue;
@@ -421,18 +490,20 @@ export function createDiscovery({ onChange } = {}) {
       const id = shortId(meta.sessionId);
       const state = mapStatus(meta.status);
 
-      // Essaim : on ne scanne les sous-agents que pour une session ACTIVE
-      // (busy ou waiting). Un workflow lancé en tâche de fond continue de tourner
-      // pendant que le parent attend un dialog → il faut le scanner aussi, sinon
-      // les têtes du workflow restent invisibles. I/O évitée pour les sessions idle.
+      // Swarm: we only scan subagents for an ACTIVE session (busy or waiting).
+      // A workflow started in the background keeps running while the parent waits
+      // on a dialog → it must be scanned too, otherwise the workflow's heads stay
+      // invisible. I/O avoided for idle sessions.
       let children = [];
       let childExtra = 0;
       let swarm = null;
       let activity = null;
+      let mode = null;
+      let effort = null;
       if (cfg.subagents && isActive(meta.status)) {
         const gathered = await gatherSwarm(meta.cwd, meta.sessionId, nowMs, cfg);
         swarm = gathered.swarm;
-        // En cours d'abord, puis terminés/échoués ; on plafonne l'affichage.
+        // In progress first, then finished/failed; we cap the display.
         const order = { working: 0, failed: 1, done: 2 };
         const all = gathered.children.sort((a, b) => order[a.status] - order[b.status] || b.mtimeMs - a.mtimeMs);
         const shown = all.slice(0, cfg.subMax);
@@ -444,14 +515,19 @@ export function createDiscovery({ onChange } = {}) {
           workflowId: c.workflowId,
         }));
       }
-      // Activité courante (dernier outil + modèle) : seulement pour une session active,
-      // lue dans la queue du transcript (mémoïsée par mtime → quasi gratuit au repos).
+      // Activity (last tool + model), mode (permissionMode) and effort level
+      // (ultracode…): only for an active session. Everything is memoized (by mtime
+      // for activity, by size + incremental scan for effort) → nearly free once
+      // read. The mode comes from the tail, read at the same time as the activity.
       if (isActive(meta.status)) {
-        activity = await latestActivity(meta.cwd, meta.sessionId, cfg);
+        const info = await latestActivity(meta.cwd, meta.sessionId, cfg);
+        mode = info?.mode || null;
+        activity = info && (info.tool || info.model) ? { tool: info.tool, model: info.model } : null;
+        effort = await sessionEffort(meta.cwd, meta.sessionId, cfg);
       }
 
-      // `waitingFor` : pourquoi la session réclame (ex. "dialog open"). Renseigné par
-      // Claude Code uniquement quand le statut est "waiting" → contexte de l'alerte.
+      // `waitingFor`: why the session is asking (e.g. "dialog open"). Set by
+      // Claude Code only when the status is "waiting" → context for the alert.
       const waitingFor = meta.status === "waiting" && meta.waitingFor ? String(meta.waitingFor) : null;
 
       next.set(id, {
@@ -465,14 +541,16 @@ export function createDiscovery({ onChange } = {}) {
         childExtra,
         swarm,
         activity,
+        mode,
+        effort,
         waitingFor,
       });
     }
     publish(next);
   }
 
-  // Boucle auto-replanifiée : on relit la cadence (pollMs) à chaque tour pour qu'un
-  // changement de config s'applique sans redémarrage (impossible avec setInterval figé).
+  // Self-rescheduling loop: we re-read the cadence (pollMs) each round so that a
+  // config change applies without a restart (impossible with a fixed setInterval).
   function schedule() {
     timer = setTimeout(async () => {
       try {
@@ -480,9 +558,9 @@ export function createDiscovery({ onChange } = {}) {
       } catch (err) {
         console.error("[claudy] erreur de découverte :", err?.message || err);
       }
-      if (timer) schedule(); // sauf si stop() est passé entre-temps
+      if (timer) schedule(); // unless stop() was called in the meantime
     }, config.get().pollMs);
-    timer.unref?.(); // ne maintient pas le process en vie à lui seul
+    timer.unref?.(); // does not keep the process alive on its own
   }
 
   return {
@@ -497,7 +575,7 @@ export function createDiscovery({ onChange } = {}) {
       if (timer) clearTimeout(timer);
       timer = null;
     },
-    /** Liste des agents auto-découverts (sessions vivantes). */
+    /** List of auto-discovered agents (live sessions). */
     list() {
       return [...current.values()];
     },

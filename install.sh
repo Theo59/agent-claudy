@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# install.sh — installeur « le plus simple » pour agent-claudy.
+# install.sh — the "simplest" installer for agent-claudy.
 #
-# Usage local (depuis le dépôt cloné) :   bash install.sh
-# Usage distant (one-liner) :             curl -fsSL <URL>/install.sh | bash
+# Local usage (from the cloned repo):   bash install.sh
+# Remote usage (one-liner):             curl -fsSL <URL>/install.sh | bash
 #
-# Ce que ça fait :
-#   1. vérifie Node ≥ 18 ;
-#   2. récupère le projet si besoin (mode distant) ;
-#   3. sur macOS : compile les apps menubar + fenêtre flottante (swiftc) ;
-#   4. affiche comment lancer.
-# Zéro dépendance npm (le serveur est 100 % Node natif).
+# What it does:
+#   1. checks for Node ≥ 18;
+#   2. fetches the project if needed (remote mode);
+#   3. on macOS: builds the menubar + floating window apps (swiftc);
+#   4. prints how to launch it.
+# Zero npm dependencies (the server is 100% native Node).
 
 set -euo pipefail
 
-# Dépôt à cloner en mode distant (à renseigner une fois publié).
+# Repo to clone in remote mode (to be filled in once published).
 REPO_URL="${CLAUDY_REPO:-https://github.com/CHANGE_ME/agent-claudy.git}"
 
 say() { printf "\033[1;33m👓 %s\033[0m\n" "$*"; }
@@ -31,9 +31,9 @@ if [ "$NODE_MAJOR" -lt 18 ]; then
 fi
 say "Node $(node -v) — OK."
 
-# ── 2. Localiser / récupérer le projet ──────────────────────────────────────
-# Si on est lancé depuis le dépôt (server/server.js présent à côté), on l'utilise ;
-# sinon (one-liner curl) on clone.
+# ── 2. Locate / fetch the project ────────────────────────────────────────────
+# If we're running from the repo (server/server.js sitting next to us), use it;
+# otherwise (curl one-liner) clone it.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
 if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/server/server.js" ]; then
   ROOT="$SCRIPT_DIR"
@@ -50,7 +50,7 @@ else
   fi
 fi
 
-# ── 3. macOS : compiler les apps natives ────────────────────────────────────
+# ── 3. macOS: build the native apps ──────────────────────────────────────────
 if [ "$(uname)" = "Darwin" ] && command -v swiftc >/dev/null 2>&1; then
   say "Compilation des apps macOS (menubar + fenêtre flottante)…"
   bash "$ROOT/mac/build-bar.sh"   >/dev/null && say "  ✓ app menubar"
@@ -59,7 +59,7 @@ else
   say "Apps macOS ignorées (pas macOS, ou swiftc absent → xcode-select --install)."
 fi
 
-# ── 4. Comment lancer ───────────────────────────────────────────────────────
+# ── 4. How to launch ─────────────────────────────────────────────────────────
 cat <<EOF
 
 $(say "Installé ! Pour démarrer :")

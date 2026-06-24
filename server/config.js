@@ -1,17 +1,17 @@
-// agent-claudy — couche de configuration centrale.
+// agent-claudy — central configuration layer.
 //
-// Source de vérité unique des réglages, éditable depuis l'UI (panneau ⚙) qui écrit
-// ~/.config/claudy/config.json. Le serveur et la découverte lisent leurs options ICI
-// (et non plus dans des `const` figés au chargement) → la plupart des réglages
-// s'appliquent À CHAUD, sans redémarrage.
+// Single source of truth for settings, editable from the UI (⚙ panel) which writes
+// ~/.config/claudy/config.json. The server and discovery read their options HERE
+// (no longer from `const`s frozen at load time) → most settings apply LIVE, with no
+// restart.
 //
-// Précédence : défauts < fichier config.json < variable d'environnement.
-//   - Le fichier est ce que pilote l'UI (toggles du quotidien).
-//   - Une variable d'env explicite (launchd, CLI, extension) GAGNE et verrouille la
-//     clé dans l'UI (signalée `overridden`) : l'ops garde la main.
+// Precedence: defaults < config.json file < environment variable.
+//   - The file is what the UI drives (day-to-day toggles).
+//   - An explicit env variable (launchd, CLI, extension) WINS and locks the key in
+//     the UI (flagged `overridden`): ops keeps control.
 //
-// Zéro dépendance (fs/os/path natifs). Lecture synchrone au boot (PORT/HOST dispo
-// immédiatement) ; écriture atomique (tmp + rename).
+// Zero dependencies (native fs/os/path). Synchronous read at boot (PORT/HOST available
+// immediately); atomic write (tmp + rename).
 
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -20,8 +20,8 @@ import { homedir } from "node:os";
 const HOME = homedir();
 const CONFIG_PATH = process.env.CLAUDY_CONFIG || join(HOME, ".config", "claudy", "config.json");
 
-// Catalogue des options. `hot:false` (port/host) ⇒ nécessite un redémarrage du serveur.
-// `advanced:true` ⇒ replié par défaut dans l'UI. `env` = variable qui surcharge/verrouille.
+// Option catalog. `hot:false` (port/host) ⇒ requires a server restart.
+// `advanced:true` ⇒ collapsed by default in the UI. `env` = variable that overrides/locks.
 const SCHEMA = [
   { key: "port", env: "CLAUDY_PORT", type: "number", default: 4310, group: "Serveur", label: "Port d'écoute", restart: true },
   { key: "host", env: "CLAUDY_HOST", type: "string", default: "127.0.0.1", group: "Serveur", label: "Adresse d'écoute", restart: true, advanced: true },
@@ -44,7 +44,7 @@ const SCHEMA = [
 const BY_KEY = new Map(SCHEMA.map((s) => [s.key, s]));
 const FALSY = new Set(["0", "false", "off", "no", ""]);
 
-// Coerce une valeur (env brut ou JSON) vers le type attendu. `undefined` = invalide.
+// Coerce a value (raw env or JSON) to the expected type. `undefined` = invalid.
 function coerce(type, v) {
   if (type === "number") {
     const n = Number(v);
@@ -54,10 +54,10 @@ function coerce(type, v) {
   return v == null ? "" : String(v);
 }
 
-let fileObj = {}; // dernier contenu de config.json (ce que l'UI édite)
-let values = {}; // valeurs effectives (défauts < fichier < env)
-let overridden = []; // clés forcées par une variable d'env (verrouillées dans l'UI)
-let onChange = null; // callback serveur pour appliquer les changements à chaud
+let fileObj = {}; // latest content of config.json (what the UI edits)
+let values = {}; // effective values (defaults < file < env)
+let overridden = []; // keys forced by an env variable (locked in the UI)
+let onChange = null; // server callback to apply changes live
 
 function recompute() {
   const next = {};
@@ -84,19 +84,19 @@ function load() {
     const parsed = JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
     fileObj = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch {
-    fileObj = {}; // absent / illisible : on retombe sur les défauts, jamais de crash
+    fileObj = {}; // missing / unreadable: fall back to defaults, never crash
   }
   recompute();
 }
 
 load();
 
-/** Valeurs effectives courantes (copie, pour éviter toute mutation externe). */
+/** Current effective values (a copy, to prevent any external mutation). */
 export function get() {
   return { ...values };
 }
 
-/** Schéma + valeurs + clés verrouillées par l'env : tout ce qu'il faut à l'UI. */
+/** Schema + values + keys locked by env: everything the UI needs. */
 export function meta() {
   return {
     schema: SCHEMA.map((s) => ({ ...s })),
@@ -107,8 +107,8 @@ export function meta() {
 }
 
 /**
- * Applique un patch : valide, écrit config.json atomiquement, recalcule, et notifie
- * le serveur des clés dont la valeur effective a changé (pour l'application à chaud).
+ * Apply a patch: validate, write config.json atomically, recompute, and notify the
+ * server of keys whose effective value changed (for live application).
  * @param {Record<string, unknown>} patch
  * @returns {Promise<ReturnType<typeof meta>>}
  */
@@ -118,7 +118,7 @@ export async function save(patch = {}) {
 
   for (const [k, v] of Object.entries(patch)) {
     const s = BY_KEY.get(k);
-    if (!s) continue; // clé inconnue : ignorée
+    if (!s) continue; // unknown key: ignored
     const c = coerce(s.type, v);
     if (c !== undefined) fileObj[k] = c;
   }
@@ -127,7 +127,7 @@ export async function save(patch = {}) {
     mkdirSync(dirname(CONFIG_PATH), { recursive: true });
     const tmp = `${CONFIG_PATH}.tmp`;
     writeFileSync(tmp, `${JSON.stringify(fileObj, null, 2)}\n`);
-    renameSync(tmp, CONFIG_PATH); // remplacement atomique
+    renameSync(tmp, CONFIG_PATH); // atomic replacement
   } catch (err) {
     throw new Error(`écriture de ${CONFIG_PATH} impossible : ${err.message}`);
   }
@@ -144,7 +144,7 @@ export async function save(patch = {}) {
   return meta();
 }
 
-/** Enregistre le callback d'application à chaud (appelé par le serveur). */
+/** Registers the live-application callback (called by the server). */
 export function setOnChange(fn) {
   onChange = typeof fn === "function" ? fn : null;
 }

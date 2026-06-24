@@ -1,22 +1,22 @@
-// Frontend agent-claudy.
-// - S'abonne au flux SSE /api/events
-// - Réconcilie une tuile (avatar + nom + bulle BD) par agent
-// - Hochement de tête + bulle de citation au rythme « parler / pause » via rAF
+// agent-claudy frontend.
+// - Subscribes to the SSE stream /api/events
+// - Reconciles one tile (avatar + name + comic bubble) per agent
+// - Head nod + quote bubble on a "speak / pause" rhythm via rAF
 
 (function () {
   "use strict";
 
-  const PX = 3; // agrandissement de l'avatar 64×64 → canvas 192×192 (pixelisé, mis à l'échelle CSS)
-  const MINI_PX = 2; // mini-têtes des sous-agents (essaim) : canvas 128×128, affiché petit en CSS
-  // Ticker : vitesse de défilement en px/s. needs_input défile plus lentement (plus lisible,
-  // car c'est une demande importante).
+  const PX = 3; // scales the 64×64 avatar up → 192×192 canvas (pixelated, scaled down via CSS)
+  const MINI_PX = 2; // sub-agent mini-heads (swarm): 128×128 canvas, displayed small via CSS
+  // Ticker: scroll speed in px/s. needs_input scrolls more slowly (more readable,
+  // since it's an important request).
   const MARQUEE_SPEED = 45;
   const MARQUEE_SPEED_SLOW = 30;
 
   const FALLBACK_QUOTES = ["Éducation minimum !", "Y a moyen de tout, tout est négociable."];
   const NEEDS_DEFAULT = "Chef, ou tu sors ou j'te sors, mais faudra prendre une décision.";
-  // Bulle TOUJOURS visible (la hauteur de tuile reste constante) ; texte fixe selon l'état,
-  // sauf "working" qui pioche une citation. Ne change qu'au changement d'état.
+  // Bubble ALWAYS visible (tile height stays constant); fixed text per state,
+  // except "working" which picks a quote. Only changes on a state change.
   const IDLE_LINE = "Remets la petite sœur.";
   const NEEDS_LINE = "Je t'attends !";
   const OFFLINE_LINE = "À la revoyure.";
@@ -39,15 +39,15 @@
   };
 
   let QUOTES = FALLBACK_QUOTES.slice();
-  /** @type {EventSource|null} flux SSE courant (gardé pour pouvoir le reconnecter au refresh). */
+  /** @type {EventSource|null} current SSE stream (kept so it can be reconnected on refresh). */
   let es = null;
-  /** @type {Map<string, any>} dernier état connu par agent */
+  /** @type {Map<string, any>} last known state per agent */
   const agents = new Map();
-  /** @type {Map<string, any>} carte DOM + état d'animation par agent */
+  /** @type {Map<string, any>} DOM card + animation state per agent */
   const cards = new Map();
 
-  // ── Renommage manuel des sessions (persisté localement via localStorage) ──────
-  // Un surnom prend le pas sur le nom découvert/serveur, pour l'id donné.
+  // ── Manual session renaming (persisted locally via localStorage) ──────────────
+  // A nickname takes precedence over the discovered/server name, for the given id.
   function customName(id) {
     try {
       return localStorage.getItem("claudy:name:" + id) || null;
@@ -60,15 +60,15 @@
       if (name) localStorage.setItem("claudy:name:" + id, name);
       else localStorage.removeItem("claudy:name:" + id);
     } catch {
-      /* localStorage indisponible : on ignore */
+      /* localStorage unavailable: ignore */
     }
   }
-  // Nom à afficher : surnom si défini, sinon le nom courant de l'agent.
+  // Name to display: nickname if set, otherwise the agent's current name.
   function effectiveName(id) {
     const a = agents.get(id);
     return customName(id) || (a ? a.name : id);
   }
-  // Édition inline du nom (double-clic) : passe l'élément en éditable et sélectionne tout.
+  // Inline name editing (double-click): makes the element editable and selects all.
   function startRename(el) {
     el.contentEditable = "plaintext-only";
     el.classList.add("editing");
@@ -79,7 +79,7 @@
     sel.removeAllRanges();
     sel.addRange(range);
   }
-  // Validation : vide ou = nom d'origine → on retire le surnom ; sinon on l'enregistre.
+  // Commit: empty or = original name → drop the nickname; otherwise save it.
   function commitRename(el, id) {
     if (!el.isContentEditable) return;
     el.contentEditable = "false";
@@ -90,12 +90,12 @@
     el.textContent = effectiveName(id);
   }
 
-  // Préférence « réduire les animations » : si activée, on ne fait pas défiler le ticker
-  // (repli statique enroulé géré en CSS).
+  // "Reduce motion" preference: when enabled, the ticker doesn't scroll
+  // (static wrapped fallback handled in CSS).
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-  // Re-mesure le ticker quand la bulle change de TAILLE (densité, redimensionnement, création).
-  // Hors de la boucle rAF pour éviter des lectures de layout à chaque frame.
+  // Re-measures the ticker when the bubble changes SIZE (density, resize, creation).
+  // Outside the rAF loop to avoid layout reads on every frame.
   const bubbleRO =
     "ResizeObserver" in window
       ? new ResizeObserver((entries) => {
@@ -106,43 +106,43 @@
         })
       : null;
 
-  // Re-mesure tout si la préférence d'animation change en cours de session.
+  // Re-measure everything if the animation preference changes mid-session.
   if (reduceMotion.addEventListener) {
     reduceMotion.addEventListener("change", () => {
       for (const card of cards.values()) measureBubble(card);
     });
   }
 
-  // ── Rendu / réconciliation ──────────────────────────────────────────────
+  // ── Render / reconciliation ─────────────────────────────────────────────
 
-  // Bascule « défile seulement si nécessaire » : si la réplique tient sur une ligne → statique
-  // centrée (aucun mouvement) ; sinon → marquee à vitesse constante. Appelée au changement de
-  // texte ET par le ResizeObserver (changement de largeur). Lit le layout → hors boucle rAF.
+  // "Scroll only if needed" toggle: if the line fits on one line → static centered
+  // (no movement); otherwise → marquee at constant speed. Called on text change AND
+  // by the ResizeObserver (width change). Reads layout → outside the rAF loop.
   function measureBubble(card) {
     const bubble = card.bubbleEl;
     if (!bubble.classList.contains("show")) return;
-    // Reduced motion : pas de marquee ; le repli CSS enroule le texte sur quelques lignes.
+    // Reduced motion: no marquee; the CSS fallback wraps the text over a few lines.
     if (reduceMotion.matches) {
       bubble.classList.remove("is-marquee");
       return;
     }
-    // Mesure « à plat » (sans la 2e copie) : largeur réelle du texte vs largeur visible.
+    // "Flat" measurement (without the 2nd copy): actual text width vs visible width.
     bubble.classList.remove("is-marquee");
     const visible = card.bubbleTextEl.clientWidth;
     const needed = card.bubbleSegEls[0].scrollWidth;
     if (needed - visible > 1) {
       bubble.classList.add("is-marquee");
-      // Distance d'un cycle = demi-piste (2 copies égales). Durée = distance / vitesse.
+      // Distance of one cycle = half the track (2 equal copies). Duration = distance / speed.
       const cycle = card.bubbleTrackEl.getBoundingClientRect().width / 2;
       const speed = card.el.dataset.state === "needs_input" ? MARQUEE_SPEED_SLOW : MARQUEE_SPEED;
       card.bubbleTrackEl.style.setProperty("--marquee-duration", (cycle / speed).toFixed(2) + "s");
     }
   }
 
-  // On écrit le texte sur les DEUX copies (la 2e, aria-hidden, ne sert qu'à la boucle marquee) ;
-  // texte complet en infobulle. Puis on (re)mesure pour choisir statique vs défilement.
-  // Outil courant → emoji + libellé court. Les outils MCP (mcp__serveur__action)
-  // sont réduits à « serveur/action ». Inconnu → nom brut.
+  // We write the text on BOTH copies (the 2nd, aria-hidden, only serves the marquee loop);
+  // full text in the tooltip. Then we (re)measure to choose static vs scrolling.
+  // Current tool → emoji + short label. MCP tools (mcp__server__action)
+  // are shortened to "server/action". Unknown → raw name.
   const TOOL_ICONS = {
     Read: "📖", Edit: "✏️", Write: "📝", Bash: "❯_", Grep: "🔍", Glob: "🗂️",
     Task: "🤖", Agent: "🤖", WebFetch: "🌐", WebSearch: "🔎", TodoWrite: "✓",
@@ -157,7 +157,7 @@
     const ico = TOOL_ICONS[tool];
     return ico ? `${ico} ${tool}` : tool;
   }
-  // claude-opus-4-8 → « Opus 4.8 » ; claude-sonnet-4-6 → « Sonnet 4.6 » ; etc.
+  // claude-opus-4-8 → "Opus 4.8"; claude-sonnet-4-6 → "Sonnet 4.6"; etc.
   function prettyModel(model) {
     if (!model) return "";
     const m = String(model).match(/(opus|sonnet|haiku|fable)-(\d+)-?(\d+)?/i);
@@ -165,7 +165,7 @@
     const fam = m[1][0].toUpperCase() + m[1].slice(1);
     return m[3] ? `${fam} ${m[2]}.${m[3]}` : `${fam} ${m[2]}`;
   }
-  // Raison d'attente (champ `waitingFor` de Claude Code) → texte lisible.
+  // Waiting reason (Claude Code's `waitingFor` field) → readable text.
   const WAITING_LABEL = {
     "dialog open": "dialogue ouvert (permission ?)",
     "tool use": "validation d'un outil",
@@ -176,7 +176,27 @@
     return WAITING_LABEL[reason] || `en attente : ${reason}`;
   }
 
-  // Met à jour la ligne d'activité ; vide → masquée (CSS via :empty).
+  // Updates the activity line; empty → hidden (CSS via :empty).
+  // Permission mode (permissionMode) -> readable chip. "default" stays hidden (normal).
+  const MODE_LABEL = { plan: "📋 Plan", acceptEdits: "✏️ Edit", bypassPermissions: "⚠️ Bypass", auto: "⚙️ Auto" };
+  function prettyMode(mode) {
+    if (!mode || mode === "default") return "";
+    return MODE_LABEL[mode] || mode;
+  }
+  // Effort level -> chip. Only elevated levels are shown; ultracode is highlighted
+  // (the user mainly wants to see whether ultracode is on). low/medium stay hidden.
+  const EFFORT_LABEL = { high: "Effort high", xhigh: "Effort xhigh", max: "Effort max", ultracode: "⚡ ULTRACODE" };
+  function prettyEffort(effort) {
+    if (!effort) return "";
+    return EFFORT_LABEL[effort] || "";
+  }
+  // Updates the mode + effort chips; ultracode gets a dedicated class for emphasis.
+  function setBadges(card, mode, effort) {
+    card.modeBadgeEl.textContent = prettyMode(mode);
+    card.effortBadgeEl.textContent = prettyEffort(effort);
+    card.effortBadgeEl.classList.toggle("badge--ultra", effort === "ultracode");
+  }
+
   function setActivity(card, activity, show) {
     const tool = show && activity ? prettyTool(activity.tool) : "";
     const model = show && activity ? prettyModel(activity.model) : "";
@@ -196,12 +216,12 @@
     el.dataset.state = agent.state;
 
     const avatar = document.createElement("div");
-    avatar.className = "avatar"; // contour de statut épousant la silhouette (CSS via data-state)
+    avatar.className = "avatar"; // status outline hugging the silhouette (CSS via data-state)
     const canvas = document.createElement("canvas");
     canvas.width = Claudy.GRID_W * PX;
     canvas.height = Claudy.GRID_H * PX;
     avatar.appendChild(canvas);
-    // Clic sur la tête : ramène la fenêtre de l'agent (VS Code / terminal) au premier plan.
+    // Click on the head: brings the agent's window (VS Code / terminal) to the foreground.
     avatar.style.cursor = "pointer";
     avatar.title = "Aller à la fenêtre de l'agent";
     avatar.addEventListener("click", () => {
@@ -219,7 +239,7 @@
         name.blur(); // → commit
       } else if (e.key === "Escape") {
         e.preventDefault();
-        name.textContent = effectiveName(agent.id); // annule la saisie
+        name.textContent = effectiveName(agent.id); // cancels the input
         name.blur();
       }
     });
@@ -227,35 +247,45 @@
 
     const bubble = document.createElement("div");
     bubble.className = "bubble";
-    bubble.dataset.agentId = agent.id; // pour retrouver la carte depuis le ResizeObserver
-    const bubbleText = document.createElement("div"); // viewport : rogne le ticker sur 1 ligne
+    bubble.dataset.agentId = agent.id; // to find the card again from the ResizeObserver
+    const bubbleText = document.createElement("div"); // viewport: clips the ticker to 1 line
     bubbleText.className = "bubble-text";
-    const bubbleTrack = document.createElement("div"); // piste qui défile (transform animé)
+    const bubbleTrack = document.createElement("div"); // scrolling track (animated transform)
     bubbleTrack.className = "bubble-track";
     const seg0 = document.createElement("span");
     seg0.className = "bubble-seg";
-    const seg1 = document.createElement("span"); // copie pour la boucle sans couture
+    const seg1 = document.createElement("span"); // copy for the seamless loop
     seg1.className = "bubble-seg";
-    seg1.setAttribute("aria-hidden", "true"); // évite une double lecture par les lecteurs d'écran
+    seg1.setAttribute("aria-hidden", "true"); // avoids double reading by screen readers
     bubbleTrack.append(seg0, seg1);
     bubbleText.appendChild(bubbleTrack);
     bubble.appendChild(bubbleText);
     if (bubbleRO) bubbleRO.observe(bubble);
 
-    // Activité courante : dernier outil + modèle (ex. « ✏️ Edit · Opus 4.8 »).
-    // Masquée tant qu'il n'y a rien à montrer (session au repos).
+    // Current activity: last tool + model (e.g. "✏️ Edit · Opus 4.8").
+    // Hidden as long as there's nothing to show (idle session).
+    // Session badges: mode (plan/edit...) + effort level (ultracode highlighted).
+    // Each chip hides when empty (CSS :empty); the row collapses when both are empty.
+    const badges = document.createElement("div");
+    badges.className = "badges";
+    const modeBadge = document.createElement("span");
+    modeBadge.className = "badge badge--mode";
+    const effortBadge = document.createElement("span");
+    effortBadge.className = "badge badge--effort";
+    badges.append(modeBadge, effortBadge);
+
     const activity = document.createElement("div");
     activity.className = "activity";
 
-    // Essaim de sous-agents : rangée de mini-têtes + compteur, sous le nom.
+    // Sub-agent swarm: row of mini-heads + counter, below the name.
     const children = document.createElement("div");
     children.className = "children";
     const childCount = document.createElement("span");
     childCount.className = "children-count";
     children.appendChild(childCount);
 
-    // Ordre BD : bulle en haut, tête au milieu, nom, activité, puis l'essaim.
-    el.append(bubble, avatar, name, activity, children);
+    // Comic-panel order: bubble on top, head in the middle, name, activity, then the swarm.
+    el.append(bubble, avatar, name, badges, activity, children);
     els.grid.appendChild(el);
 
     const card = {
@@ -268,6 +298,8 @@
       bubbleTrackEl: bubbleTrack,
       bubbleSegEls: [seg0, seg1],
       activityEl: activity,
+      modeBadgeEl: modeBadge,
+      effortBadgeEl: effortBadge,
       childrenEl: children,
       childCountEl: childCount,
       childCards: new Map(), // childId -> { el, ctx, phase }
@@ -279,8 +311,8 @@
     return card;
   }
 
-  // Réconcilie les mini-têtes des sous-agents d'une session (essaim dans la tuile).
-  // Chaque tête porte un statut : working (pulsant), done (vert), failed (rouge).
+  // Reconciles the mini-heads of a session's sub-agents (swarm in the tile).
+  // Each head carries a status: working (pulsing), done (green), failed (red).
   function syncChildren(card, list, extra, swarm) {
     const wanted = new Set(list.map((c) => c.id));
     for (const [id, child] of card.childCards) {
@@ -300,18 +332,18 @@
         canvas.width = Claudy.GRID_W * MINI_PX;
         canvas.height = Claudy.GRID_H * MINI_PX;
         mini.appendChild(canvas);
-        // Insère avant le compteur (qui reste en dernier, pleine largeur).
+        // Insert before the counter (which stays last, full width).
         card.childrenEl.insertBefore(mini, card.childCountEl);
         child = { el: mini, ctx: canvas.getContext("2d"), phase: Math.random() * Math.PI * 2 };
         card.childCards.set(sub.id, child);
       }
-      child.status = status; // lu par la boucle d'animation (hochement si « working »)
-      child.el.dataset.status = status; // couleur du contour via CSS
+      child.status = status; // read by the animation loop (nods if "working")
+      child.el.dataset.status = status; // outline color via CSS
       child.el.title = `${sub.name} — ${STATUS_LABEL[status] || status}`;
       child.el.setAttribute("aria-label", `sous-agent ${sub.name} : ${STATUS_LABEL[status] || status}`);
     }
 
-    // Compteur : progression du workflow si disponible, sinon simple nombre.
+    // Counter: workflow progress if available, otherwise just a count.
     if (swarm && swarm.total) {
       const parts = [`${swarm.done}✓`];
       if (swarm.failed) parts.push(`${swarm.failed}✗`);
@@ -323,24 +355,24 @@
     }
   }
 
-  // Met à jour nom / statut / bulle quand l'état change (hors défilement working).
+  // Updates name / status / bubble when the state changes (outside the working scroll).
   function syncCard(card, agent) {
-    // Ne pas écraser le nom pendant qu'on l'édite (double-clic) ; sinon nom effectif (surnom éventuel).
+    // Don't overwrite the name while it's being edited (double-click); otherwise effective name (possible nickname).
     if (!card.nameEl.isContentEditable) card.nameEl.textContent = effectiveName(agent.id);
-    card.el.dataset.state = agent.state; // pilote la couleur du contour de silhouette (CSS)
-    // Étiquette accessible (lecteur d'écran) sans infobulle visible.
+    card.el.dataset.state = agent.state; // drives the silhouette outline color (CSS)
+    // Accessible label (screen reader) without a visible tooltip.
     card.el.setAttribute("aria-label", `${effectiveName(agent.id)} — ${LABELS[agent.state] || agent.state}`);
 
     if (agent.state !== card.renderedState) {
-      // Bulle TOUJOURS affichée → la hauteur de la tuile ne change pas d'un état à l'autre.
+      // Bubble ALWAYS shown → the tile height doesn't change from one state to another.
       card.bubbleEl.classList.add("show");
       if (agent.state === "working") {
-        // Réplique FIXE choisie au passage en "working" (défile si trop longue, ne tourne pas).
+        // FIXED line chosen when entering "working" (scrolls if too long, doesn't rotate).
         card.quoteIdx = (card.quoteIdx + 1) % QUOTES.length;
         setBubble(card, QUOTES[card.quoteIdx]);
       } else if (agent.state === "needs_input") {
         setBubble(card, NEEDS_LINE);
-        // Détail réel au survol : demande explicite (hook) ou raison d'attente (waitingFor).
+        // Actual detail on hover: explicit request (hook) or waiting reason (waitingFor).
         const detail = agent.request || prettyWaiting(agent.waitingFor);
         if (detail) card.bubbleEl.title = detail;
         if (els.srLive) {
@@ -353,34 +385,35 @@
       }
       card.renderedState = agent.state;
     } else if (agent.state === "needs_input") {
-      // La demande / raison d'attente peut changer sans changer d'état : on garde
-      // « Je t'attends ! » et on met à jour le détail au survol.
+      // The request / waiting reason can change without changing state: we keep
+      // "Je t'attends !" and update the detail on hover.
       const detail = agent.request || prettyWaiting(agent.waitingFor);
       if (detail) card.bubbleEl.title = detail;
     }
 
-    // Activité courante : visible dès qu'on en a une (l'outil change pendant « working »).
+    // Current activity: visible as soon as we have one (the tool changes during "working").
     setActivity(card, agent.activity, !!agent.activity);
+    setBadges(card, agent.mode, agent.effort);
 
     syncChildren(card, agent.children || [], agent.childExtra || 0, agent.swarm || null);
   }
 
-  // Densité responsive : plus il y a d'agents, plus les tuiles sont petites.
+  // Responsive density: the more agents there are, the smaller the tiles.
   function applyDensity(n) {
-    // Bulle sur 1 ligne (ticker) → tuiles très compactes : 2 colonnes tiennent dès ~258px
-    // (la fenêtre flottante), et la grille en empile davantage sur un écran large.
+    // Single-line bubble (ticker) → very compact tiles: 2 columns fit from ~258px
+    // (the floating window), and the grid stacks more of them on a wide screen.
     const [tile, avatar] =
       n <= 8 ? [100, 52] : n <= 16 ? [92, 47] : n <= 32 ? [84, 42] : [78, 37];
     els.grid.style.setProperty("--tile", `${tile}px`);
     els.grid.style.setProperty("--avatar", `${avatar}px`);
   }
 
-  // Résumé compact des statuts dans la barre du haut (● 3  ◔ 1  ‼ 1).
+  // Compact status summary in the top bar (● 3  ◔ 1  ‼ 1).
   function updateSummary(list) {
     if (!els.summary) return;
     const c = { working: 0, idle: 0, needs_input: 0, offline: 0 };
     for (const a of list) c[a.state] = (c[a.state] || 0) + 1;
-    // Indicateur compact : icône AU-DESSUS du nombre (mini-colonne) → prend peu de largeur.
+    // Compact indicator: icon ABOVE the number (mini-column) → takes little width.
     const stat = (cls, ico, n) =>
       n
         ? `<span class="stat ${cls}"><span class="stat-ico">${ico}</span><span class="stat-num">${n}</span></span>`
@@ -390,13 +423,13 @@
       stat("stat--needs", "‼", c.needs_input),
       stat("stat--idle", "◔", c.idle),
       stat("stat--offline", "○", c.offline),
-    ].join(""); // contenu statique + nombres : sûr
+    ].join(""); // static content + numbers: safe
   }
 
   function reconcile(list) {
     const ids = new Set(list.map((a) => a.id));
 
-    // Supprime les cartes disparues.
+    // Remove cards that have disappeared.
     for (const [id, card] of cards) {
       if (!ids.has(id)) {
         if (bubbleRO) bubbleRO.unobserve(card.bubbleEl);
@@ -406,7 +439,7 @@
       }
     }
 
-    // Crée / met à jour.
+    // Create / update.
     for (const agent of list) {
       agents.set(agent.id, agent);
       let card = cards.get(agent.id);
@@ -414,10 +447,10 @@
       syncCard(card, agent);
     }
 
-    // Réaligne l'ordre du DOM sur l'ordre (trié par nom) reçu du serveur, mais SANS
-    // toucher au DOM si l'ordre n'a pas changé : on ne déplace un nœud que s'il n'est
-    // pas déjà à sa place. Indispensable — ré-appendChild tous les nœuds à chaque
-    // message SSE réinitialisait le scroll (perte de position, insupportable).
+    // Realign the DOM order with the order (sorted by name) received from the server, but WITHOUT
+    // touching the DOM if the order hasn't changed: we only move a node if it isn't
+    // already in place. Essential — re-appendChild'ing every node on each
+    // SSE message reset the scroll (loss of position, unbearable).
     let prev = null;
     for (const agent of list) {
       const el = cards.get(agent.id).el;
@@ -426,7 +459,7 @@
       prev = el;
     }
 
-    // Compteur, résumé, densité, état vide.
+    // Counter, summary, density, empty state.
     const n = list.length;
     els.count.textContent = `${n} agent${n > 1 ? "s" : ""}`;
     els.empty.style.display = n === 0 ? "" : "none";
@@ -434,7 +467,7 @@
     updateSummary(list);
   }
 
-  // ── Boucle d'animation ────────────────────────────────────────────────────
+  // ── Animation loop ──────────────────────────────────────────────────────────
 
   function frame(t) {
     for (const [id, card] of cards) {
@@ -446,25 +479,25 @@
       let tint = null;
 
       if (agent.state === "working") {
-        bob = Math.sin(t * 0.013 + card.phase) * 6; // hochement : « il parle »
-        // La réplique est posée au changement d'état (syncCard), pas ici : elle reste FIXE
-        // et défile en CSS. La boucle ne fait plus que le hochement.
+        bob = Math.sin(t * 0.013 + card.phase) * 6; // nod: "he's talking"
+        // The line is set on the state change (syncCard), not here: it stays FIXED
+        // and scrolls via CSS. The loop now only does the nodding.
       } else if (agent.state === "needs_input") {
-        bob = Math.sin(t * 0.006 + card.phase) * 3; // sollicitation
+        bob = Math.sin(t * 0.006 + card.phase) * 3; // soliciting
         tint = "#d65a4a";
       } else if (agent.state === "idle") {
         dim = true;
-        bob = Math.sin(t * 0.0025 + card.phase) * 1.5; // respiration légère
+        bob = Math.sin(t * 0.0025 + card.phase) * 1.5; // gentle breathing
       } else {
         dim = true; // offline
       }
 
       Claudy.draw(card.ctx, { px: PX, bob, dim, tint });
 
-      // Mini-têtes des sous-agents : toujours actives → hochement, déphasées entre elles.
+      // Sub-agent mini-heads: always active → nodding, out of phase with each other.
       for (const child of card.childCards.values()) {
-        // Seules les têtes « en cours » hochent ; terminées/échouées restent fixes
-        // (atténuées si échec) pour bien lire l'état figé du run.
+        // Only "working" heads nod; done/failed ones stay fixed
+        // (dimmed if failed) to clearly read the frozen state of the run.
         const working = child.status === "working" || child.status === undefined;
         const bob = working ? Math.sin(t * 0.013 + child.phase) * 3 : 0;
         Claudy.draw(child.ctx, { px: MINI_PX, bob, dim: child.status === "failed" });
@@ -473,7 +506,7 @@
     requestAnimationFrame(frame);
   }
 
-  // ── Connexion SSE ──────────────────────────────────────────────────────────
+  // ── SSE connection ──────────────────────────────────────────────────────────
 
   function setConn(ok) {
     els.conn.className = "dot " + (ok ? "dot--on" : "dot--off");
@@ -481,21 +514,21 @@
   }
 
   function connect() {
-    if (es) es.close(); // évite les flux en double lors d'une reconnexion (refresh)
+    if (es) es.close(); // avoids duplicate streams on a reconnection (refresh)
     es = new EventSource("/api/events");
     es.onopen = () => setConn(true);
-    es.onerror = () => setConn(false); // EventSource se reconnecte tout seul
+    es.onerror = () => setConn(false); // EventSource reconnects on its own
     es.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
         if (msg.type === "agents") reconcile(msg.agents);
       } catch {
-        /* ping ou message non-JSON : ignoré */
+        /* ping or non-JSON message: ignored */
       }
     };
   }
 
-  // Refresh manuel : re-tire l'état courant tout de suite et reconnecte le flux si besoin.
+  // Manual refresh: re-pulls the current state immediately and reconnects the stream if needed.
   async function refreshNow() {
     if (els.refresh) els.refresh.classList.add("spinning");
     try {
@@ -503,13 +536,13 @@
       const data = await res.json();
       if (data && data.type === "agents") reconcile(data.agents);
     } catch {
-      /* serveur injoignable : le bouton arrête juste de tourner */
+      /* server unreachable: the button just stops spinning */
     }
-    if (!es || es.readyState === 2) connect(); // 2 = CLOSED → on rétablit le flux SSE
+    if (!es || es.readyState === 2) connect(); // 2 = CLOSED → re-establish the SSE stream
     setTimeout(() => els.refresh && els.refresh.classList.remove("spinning"), 600);
   }
 
-  // ── Démarrage ───────────────────────────────────────────────────────────────
+  // ── Startup ───────────────────────────────────────────────────────────────────
 
   async function init() {
     try {
@@ -517,7 +550,7 @@
       const data = await res.json();
       if (Array.isArray(data.quotes) && data.quotes.length) QUOTES = data.quotes;
     } catch {
-      /* on garde le fallback */
+      /* keep the fallback */
     }
 
     if (els.refresh) els.refresh.addEventListener("click", refreshNow);

@@ -30,11 +30,11 @@ a { color: var(--accent); text-decoration: none; }
 .small { font-size: 12.5px; }
 .accent { color: var(--accent); }
 
-/* ── Marque ─────────────────────────────────────────────────────────────── */
+/* ── Brand ──────────────────────────────────────────────────────────────── */
 .brand-mark { width: 34px; height: 22px; color: var(--accent); flex: none; }
 .brand-mark svg, svg.brand-mark { display: block; width: 100%; height: 100%; }
 
-/* ── Boutons ────────────────────────────────────────────────────────────── */
+/* ── Buttons ────────────────────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -84,7 +84,7 @@ a { color: var(--accent); text-decoration: none; }
 .lead { font-size: 17px; color: var(--ink); max-width: 46ch; margin: 0 auto; }
 .cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin: 24px 0 10px; }
 
-/* ── Diptyque (scène) : session Claude + vraie interface Claudy ───────────── */
+/* ── Diptych (scene): Claude session + real Claudy UI ─────────────────────── */
 .scene {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -96,6 +96,11 @@ a { color: var(--accent); text-decoration: none; }
 }
 .scene-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .scene-cap { text-align: center; font-size: 13px; color: var(--muted); }
+
+/* Several stacked sessions on the left: compact terminals. */
+.term--mini + .term--mini { margin-top: 2px; }
+.term--mini .term-body { height: 112px; font-size: 12.5px; line-height: 1.5; }
+.term--mini .term-title { color: var(--accent); opacity: 0.85; }
 
 .device {
   background: #0d0b08;
@@ -121,7 +126,7 @@ a { color: var(--accent); text-decoration: none; }
   background: var(--bg);
 }
 
-/* ── Terminal (le clou) ─────────────────────────────────────────────────── */
+/* ── Terminal (the star) ────────────────────────────────────────────────── */
 .stage { display: flex; flex-direction: column; gap: 10px; }
 .term {
   position: relative;
@@ -145,7 +150,7 @@ a { color: var(--accent); text-decoration: none; }
 .tdot--g { background: #61c554; }
 .term-title { margin-left: 8px; font-size: 12.5px; color: var(--muted); }
 
-/* Têtes qui s'affichent pendant la démo. */
+/* Heads that appear during the demo. */
 .crew {
   display: flex;
   align-items: flex-end;
@@ -171,7 +176,7 @@ a { color: var(--accent); text-decoration: none; }
   height: 100%;
   display: block;
   image-rendering: pixelated;
-  /* Contour qui épouse la silhouette (couleur = statut). */
+  /* Outline that hugs the silhouette (color = status). */
   filter:
     drop-shadow(0.8px 0 0 var(--ring)) drop-shadow(-0.8px 0 0 var(--ring))
     drop-shadow(0 0.8px 0 var(--ring)) drop-shadow(0 -0.8px 0 var(--ring));
@@ -185,8 +190,8 @@ a { color: var(--accent); text-decoration: none; }
 @keyframes head-in { from { opacity: 0; transform: translateY(8px) scale(0.8); } }
 @keyframes head-alert { 50% { filter: drop-shadow(0 0 7px var(--red)); } }
 
-/* Corps du terminal : lignes qui défilent. Flex + justify-end → les dernières lignes
-   restent en bas, les anciennes débordent par le haut (rognées) : pas de scroll JS. */
+/* Terminal body: scrolling lines. Flex + justify-end → the latest lines
+   stay at the bottom, older ones overflow off the top (clipped): no JS scroll. */
 .term-body {
   font-size: 13.5px;
   line-height: 1.65;
@@ -210,7 +215,7 @@ a { color: var(--accent); text-decoration: none; }
 @keyframes ln-in { from { opacity: 0; } }
 @keyframes blink { 50% { opacity: 0; } }
 
-/* Slot GIF / meme (placeholder maison ; remplaçable par un embed Giphy/Tenor). */
+/* GIF / meme slot (homemade placeholder; swappable for a Giphy/Tenor embed). */
 .term-gif {
   display: inline-flex;
   align-items: center;
@@ -271,7 +276,7 @@ section h2 { font-size: clamp(22px, 3vw, 32px); margin: 0 0 28px; text-align: ce
 .feature p { margin: 0 0 12px; font-size: 14px; }
 .feature .quote { font-size: 12.5px; color: var(--muted); font-style: italic; }
 
-/* ── Téléchargement ─────────────────────────────────────────────────────── */
+/* ── Download ───────────────────────────────────────────────────────────── */
 .download { text-align: center; }
 .dl-mark { width: 80px; height: 52px; color: var(--accent); margin: 0 auto 6px; }
 .dl-options {

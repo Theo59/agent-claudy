@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="landing.css" />
   </head>
   <body>
-    <!-- Marque Claudy (aviateurs + moustache), définie une fois, réutilisée via <use>. -->
+    <!-- Claudy mark (aviators + moustache), defined once, reused via <use>. -->
     <svg width="0" height="0" style="position: absolute" aria-hidden="true">
       <symbol id="claudy-mark" viewBox="0 0 64 42" fill="currentColor">
         <path d="M6 11 Q32 7 58 11 L58 13.5 Q32 9.5 6 13.5 Z" />
@@ -43,7 +43,7 @@
     </header>
 
     <main id="top">
-      <!-- ── HERO + TERMINAL (le clou) ─────────────────────────────────────── -->
+      <!-- ── HERO + TERMINAL (the showpiece) ───────────────────────────────── -->
       <section class="hero">
         <div class="hero-copy">
           <h1>Tes agents Claude Code,<br /><span class="accent">en têtes de Claudy.</span></h1>
@@ -59,16 +59,30 @@
         </div>
       </section>
 
-      <!-- Diptyque : la session Claude (gauche) + la VRAIE interface Claudy (droite). -->
+      <!-- Diptych: the Claude session (left) + the REAL Claudy interface (right). -->
       <section class="scene" id="demo">
         <div class="scene-col">
-          <p class="scene-cap">① Dans Claude Code, ça bosse…</p>
-          <div class="term">
+          <p class="scene-cap">① Plusieurs sessions Claude Code, en parallèle…</p>
+          <div class="term term--mini">
             <div class="term-bar">
               <span class="tdot tdot--r"></span><span class="tdot tdot--y"></span><span class="tdot tdot--g"></span>
-              <span class="term-title">claude — agent-claudy</span>
+              <span class="term-title">✶ agent-claudy</span>
             </div>
-            <div class="term-body" id="termBody"></div>
+            <div class="term-body" id="term-cc-1"></div>
+          </div>
+          <div class="term term--mini">
+            <div class="term-bar">
+              <span class="tdot tdot--r"></span><span class="tdot tdot--y"></span><span class="tdot tdot--g"></span>
+              <span class="term-title">✶ jetsite</span>
+            </div>
+            <div class="term-body" id="term-cc-2"></div>
+          </div>
+          <div class="term term--mini">
+            <div class="term-bar">
+              <span class="tdot tdot--r"></span><span class="tdot tdot--y"></span><span class="tdot tdot--g"></span>
+              <span class="term-title">✶ daphn-e-lachavanne</span>
+            </div>
+            <div class="term-body" id="term-cc-3"></div>
           </div>
         </div>
         <div class="scene-col">
@@ -88,7 +102,7 @@
         </div>
       </section>
 
-      <!-- ── COMMENT ÇA MARCHE ─────────────────────────────────────────────── -->
+      <!-- ── HOW IT WORKS ──────────────────────────────────────────────────── -->
       <section class="steps">
         <h2>Trois temps, c'est tout</h2>
         <ol class="steps-grid">
@@ -98,7 +112,7 @@
         </ol>
       </section>
 
-      <!-- ── FONCTIONS ─────────────────────────────────────────────────────── -->
+      <!-- ── FEATURES ──────────────────────────────────────────────────────── -->
       <section class="features" id="features">
         <h2>Ce qu'il sait faire</h2>
         <div class="feature-grid">
@@ -135,7 +149,7 @@
         </div>
       </section>
 
-      <!-- ── TÉLÉCHARGEMENT ────────────────────────────────────────────────── -->
+      <!-- ── DOWNLOAD ──────────────────────────────────────────────────────── -->
       <section class="download" id="download">
         <svg class="dl-mark" aria-hidden="true"><use href="#claudy-mark" /></svg>
         <h2>Installe Claudy</h2>

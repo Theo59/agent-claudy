@@ -1,14 +1,14 @@
-// Extension VS Code agent-claudy.
+// agent-claudy VS Code extension.
 //
-// Embarque le visualiseur directement dans l'éditeur :
-//   - démarre le serveur local (server/server.js) en arrière-plan (ou réutilise
-//     un serveur déjà lancé sur le port configuré) ;
-//   - affiche les têtes de Claudy dans un panneau de la barre d'activité (webview
-//     pointant vers l'UI servie par le serveur) ;
-//   - résume l'état des agents dans la barre d'état (orange si une demande) ;
-//   - fournit des commandes pratiques, dont l'installation des hooks Claude Code.
+// Embeds the visualizer directly in the editor:
+//   - starts the local server (server/server.js) in the background (or reuses
+//     a server already running on the configured port);
+//   - shows the Claudy heads in an activity-bar panel (webview pointing to the
+//     UI served by the server);
+//   - summarizes the agents' state in the status bar (orange when one is asking);
+//   - provides handy commands, including installing the Claude Code hooks.
 //
-// Écrit en CommonJS (.cjs) car la racine du paquet est en "type":"module" (serveur ESM).
+// Written in CommonJS (.cjs) because the package root is "type":"module" (ESM server).
 
 const vscode = require("vscode");
 const cp = require("child_process");
@@ -17,8 +17,8 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 
-// Mode hybride : le hook ne gère que l'alerte rouge needs_input. Notification la
-// pose ; les autres événements la lèvent. working/idle/offline = auto-découverte.
+// Hybrid mode: the hook only handles the red needs_input alert. Notification sets
+// it; the other events clear it. working/idle/offline = auto-discovery.
 const HOOK_EVENTS = ["Notification", "UserPromptSubmit", "PreToolUse", "Stop", "SessionEnd"];
 
 let serverProc = null;
@@ -34,7 +34,7 @@ const cfg = () => vscode.workspace.getConfiguration("agentClaudy");
 const getPort = () => cfg().get("port", 4310);
 const baseUrl = () => `http://127.0.0.1:${getPort()}`;
 
-// ── Petit client HTTP (http natif, robuste quelle que soit la version Node de l'hôte) ──
+// ── Small HTTP client (native http, robust whatever the host's Node version) ──
 
 function httpJson(method, pathname, body) {
   return new Promise((resolve, reject) => {
@@ -76,7 +76,7 @@ async function probe() {
   }
 }
 
-// ── Gestion du serveur ──────────────────────────────────────────────────────
+// ── Server management ────────────────────────────────────────────────────────
 
 async function startServer(context) {
   if (await probe()) {
@@ -85,7 +85,7 @@ async function startServer(context) {
     return true;
   }
   const serverPath = path.join(context.extensionPath, "server", "server.js");
-  // process.execPath = binaire de l'éditeur ; ELECTRON_RUN_AS_NODE le fait tourner en Node.
+  // process.execPath = the editor's binary; ELECTRON_RUN_AS_NODE makes it run as Node.
   serverProc = cp.spawn(process.execPath, [serverPath], {
     env: {
       ...process.env,
@@ -116,7 +116,7 @@ function stopServer() {
   }
 }
 
-// ── Panneau webview (iframe vers l'UI du serveur) ──────────────────────────────
+// ── Webview panel (iframe to the server's UI) ──────────────────────────────────
 
 class ClaudyViewProvider {
   constructor() {
@@ -132,8 +132,8 @@ class ClaudyViewProvider {
     const ext = await vscode.env.asExternalUri(vscode.Uri.parse(baseUrl()));
     const src = ext.toString();
     const origin = `${ext.scheme}://${ext.authority}`;
-    // CSP : on autorise UNIQUEMENT l'origine de l'iframe + localhost au PORT configuré
-    // (au lieu de http://127.0.0.1:* qui ouvrait n'importe quel port local).
+    // CSP: we allow ONLY the iframe origin + localhost on the configured PORT
+    // (instead of http://127.0.0.1:* which opened any local port).
     const port = new URL(baseUrl()).port || "4310";
     this.view.webview.html = `<!doctype html>
 <html><head><meta charset="utf-8" />
@@ -143,7 +143,7 @@ class ClaudyViewProvider {
   }
 }
 
-// ── Barre d'état ──────────────────────────────────────────────────────────────
+// ── Status bar ──────────────────────────────────────────────────────────────
 
 async function updateStatus() {
   if (!statusItem) return;
@@ -172,7 +172,7 @@ async function updateStatus() {
   }
 }
 
-// ── Commandes ─────────────────────────────────────────────────────────────────
+// ── Commands ──────────────────────────────────────────────────────────────────
 
 async function toggleDemo() {
   demoOn = !demoOn;
@@ -229,7 +229,7 @@ async function installHooks(context) {
   try {
     raw = fs.readFileSync(settingsPath, "utf8");
   } catch {
-    raw = null; // fichier absent : on le créera
+    raw = null; // file missing: we'll create it
   }
   if (raw !== null) {
     try {
@@ -246,20 +246,20 @@ async function installHooks(context) {
       );
       return;
     }
-    // Sauvegarde le contenu ORIGINAL brut (jamais une reconstruction) avant d'écrire.
+    // Back up the raw ORIGINAL content (never a reconstruction) before writing.
     fs.writeFileSync(settingsPath + ".bak", raw);
   }
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
 
   const hookPath = path.join(context.extensionPath, "bin", "claudy-hook.js");
-  // Commande exécutée par Claude Code dans un shell : on s'appuie sur `node` du PATH
-  // et on injecte l'URL pour suivre le port configuré.
+  // Command run by Claude Code in a shell: we rely on `node` from PATH and inject
+  // the URL to follow the configured port.
   const command = `CLAUDY_URL=${baseUrl()} node "${hookPath}"`;
 
   settings.hooks = settings.hooks || {};
   for (const event of HOOK_EVENTS) {
     const list = Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [];
-    // Idempotent : retire d'éventuelles entrées claudy précédentes avant d'ajouter.
+    // Idempotent: remove any previous claudy entries before adding.
     const cleaned = list.filter(
       (entry) =>
         !(entry.hooks || []).some((h) => typeof h.command === "string" && h.command.includes("claudy-hook")),
@@ -278,7 +278,7 @@ async function installHooks(context) {
   }
 }
 
-// ── Activation ────────────────────────────────────────────────────────────────
+// ── Activation ──────────────────────────────────────────────────────────────
 
 function activate(context) {
   output = vscode.window.createOutputChannel("agent-claudy");

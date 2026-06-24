@@ -1,13 +1,13 @@
-// agent-claudy — serveur de visualisation d'agents IA.
+// agent-claudy — AI agent visualizer server.
 //
-// Zéro dépendance : http natif + Server-Sent Events (SSE) pour pousser l'état
-// des agents vers le navigateur en temps réel.
+// Zero dependencies: native http + Server-Sent Events (SSE) to push agent
+// state to the browser in real time.
 //
-//   - Les agents (ou le mode démo) POSTent leur état sur  /api/agents/:id
-//   - Le navigateur s'abonne au flux SSE sur             /api/events
-//   - Les fichiers statiques (UI) sont servis depuis      public/
+//   - Agents (or demo mode) POST their state to  /api/agents/:id
+//   - The browser subscribes to the SSE stream at /api/events
+//   - Static files (UI) are served from           public/
 //
-// Lancement :  node server/server.js   (ou  npm start)
+// Run:  node server/server.js   (or  npm start)
 
 import http from "node:http";
 import { readFile } from "node:fs/promises";
@@ -21,29 +21,29 @@ import * as config from "./config.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 const PUBLIC_DIR = join(ROOT, "public");
-const PUBLIC_ROOT = resolve(PUBLIC_DIR); // chemin canonique pour la garde anti path-traversal
+const PUBLIC_ROOT = resolve(PUBLIC_DIR); // canonical path for the anti path-traversal guard
 
-// Port/hôte sont lus au boot (un changement exige un redémarrage, signalé dans l'UI).
-// Les autres réglages sont relus dynamiquement via config.get() à leur point d'usage.
+// Port/host are read at boot (changing them requires a restart, surfaced in the UI).
+// Other settings are re-read dynamically via config.get() at their point of use.
 const PORT = config.get().port;
 const HOST = config.get().host;
 
-// États valides d'un agent.
+// Valid agent states.
 const STATES = new Set(["working", "idle", "needs_input", "offline"]);
 
-// ── Données ─────────────────────────────────────────────────────────────────
+// ── Data ──────────────────────────────────────────────────────────────────────
 
-/** Agents « manuels » : mode démo + CLI bin/claudy-report.js (POST /api/agents/:id).
+/** "Manual" agents: demo mode + CLI bin/claudy-report.js (POST /api/agents/:id).
  *  @type {Map<string, {id:string,name:string,state:string,quote:string|null,request:string|null,updatedAt:number}>} */
 const agents = new Map();
 
-/** Overlay « needs_input » posé par le hook (POST /api/notify/:id), par id de session.
- *  Prend le pas sur l'état auto-découvert tant qu'il est actif. @type {Map<string,{request:string|null,name:string|null,at:number}>} */
+/** "needs_input" overlay set by the hook (POST /api/notify/:id), keyed by session id.
+ *  Takes precedence over the auto-discovered state while active. @type {Map<string,{request:string|null,name:string|null,at:number}>} */
 const overrides = new Map();
 
-// Auto-découverte des sessions Claude Code. Le timer tourne toujours ; scanOnce se
-// coupe tout seul si le réglage `discover` est désactivé (application à chaud).
-// Dès qu'une vraie session est découverte, on coupe la démo (simple repli d'état vide).
+// Auto-discovery of Claude Code sessions. The timer always runs; scanOnce bails out
+// on its own if the `discover` setting is disabled (applied live).
+// As soon as a real session is discovered, we stop the demo (a simple empty-state fallback).
 const discovery = createDiscovery({
   onChange: () => {
     if (demoTimer && discovery.list().length > 0) stopDemo();
@@ -51,19 +51,19 @@ const discovery = createDiscovery({
   },
 });
 
-// Anti-doublon : coupe les notifs natives de Claude Code (et les restaure). Le réglage
-// `muteCc` décide QUAND on appelle on/off (boot, bascule UI, arrêt) ; la fonction, elle,
-// applique toujours l'action demandée. Synchrone pour garantir la restauration avant exit.
+// Anti-duplicate: mutes Claude Code's native notifications (and restores them). The
+// `muteCc` setting decides WHEN we call on/off (boot, UI toggle, shutdown); the function
+// itself always performs the requested action. Synchronous to guarantee restoration before exit.
 function muteClaude(state /* "on" | "off" */) {
   if (process.platform !== "darwin") return;
   try {
     spawnSync(process.execPath, [join(ROOT, "bin", "claudy-mute-claude.js"), state], { stdio: "ignore" });
   } catch {
-    /* réglages illisibles : on n'empêche pas le serveur de tourner */
+    /* unreadable settings: don't prevent the server from running */
   }
 }
 
-/** Clients SSE connectés. @type {Set<http.ServerResponse>} */
+/** Connected SSE clients. @type {Set<http.ServerResponse>} */
 const clients = new Set();
 
 let QUOTES = ["Éducation minimum !"];
@@ -77,7 +77,7 @@ try {
 
 const now = () => Date.now();
 
-// Filet de sécurité : un visualiseur local ne doit jamais tomber sur une erreur isolée.
+// Safety net: a local visualizer should never go down over an isolated error.
 process.on("unhandledRejection", (err) =>
   console.error("[claudy] rejet non géré :", err?.message || err),
 );
@@ -85,8 +85,8 @@ process.on("uncaughtException", (err) =>
   console.error("[claudy] exception non capturée :", err?.message || err),
 );
 
-// Force une valeur en string non vide, sinon null. Évite d'empoisonner la Map
-// (et le tri par nom) avec un type inattendu envoyé par un client.
+// Coerce a value to a non-empty string, else null. Avoids poisoning the Map
+// (and the name-based sort) with an unexpected type sent by a client.
 function asText(v) {
   if (v === undefined || v === null) return null;
   const s = String(v);
@@ -97,14 +97,14 @@ function overrideActive(o) {
   return o && now() - o.at < config.get().overrideTtlMs;
 }
 
-// Hôte loopback ? (anti DNS-rebinding). Gère le port et IPv6 [::1].
+// Loopback host? (anti DNS-rebinding). Handles the port and IPv6 [::1].
 function isLocalHost(host) {
   if (!host) return false;
   const h = String(host).toLowerCase();
   const name = h.startsWith("[") ? h.slice(0, h.indexOf("]") + 1) : h.split(":")[0];
   return name === "127.0.0.1" || name === "localhost" || name === "::1" || name === "[::1]";
 }
-// Origine loopback ? (anti-CSRF cross-site).
+// Loopback origin? (anti cross-site CSRF).
 function isLocalOrigin(origin) {
   try {
     return isLocalHost(new URL(origin).host);
@@ -112,8 +112,8 @@ function isLocalOrigin(origin) {
     return false;
   }
 }
-// Plafonne une Map en évinçant l'entrée la plus ancienne (anti-saturation mémoire si un
-// client poste des milliers d'ids différents). `getAt` lit l'horodatage d'une entrée.
+// Caps a Map by evicting the oldest entry (guards against memory blowup if a
+// client posts thousands of distinct ids). `getAt` reads an entry's timestamp.
 function capMap(map, max, getAt) {
   if (map.size < max) return;
   let oldestKey;
@@ -128,12 +128,12 @@ function capMap(map, max, getAt) {
   if (oldestKey !== undefined) map.delete(oldestKey);
 }
 
-// Vue fusionnée diffusée au navigateur : sessions auto-découvertes + agents manuels
-// (démo/CLI) + overlay needs_input du hook posé par-dessus le même id.
+// Merged view broadcast to the browser: auto-discovered sessions + manual agents
+// (demo/CLI) + the hook's needs_input overlay laid over the same id.
 function snapshot() {
   const byId = new Map();
 
-  // 1. Sessions auto-découvertes (working / idle) + leur essaim de sous-agents.
+  // 1. Auto-discovered sessions (working / idle) + their swarm of sub-agents.
   for (const d of discovery.list()) {
     byId.set(d.id, {
       id: d.id,
@@ -145,18 +145,20 @@ function snapshot() {
       childExtra: d.childExtra || 0,
       swarm: d.swarm || null,
       activity: d.activity || null,
+      mode: d.mode || null,
+      effort: d.effort || null,
       waitingFor: d.waitingFor || null,
       updatedAt: now(),
     });
   }
 
-  // 2. Agents manuels (démo + CLI) absents de la découverte. Copie pour ne pas
-  //    muter l'objet stocké lors de l'application de l'overlay (étape 3).
+  // 2. Manual agents (demo + CLI) not present in discovery. Copied so we don't
+  //    mutate the stored object when applying the overlay (step 3).
   for (const a of agents.values()) {
     if (!byId.has(a.id)) byId.set(a.id, { ...a });
   }
 
-  // 3. Overlay needs_input du hook (purge des entrées expirées au passage).
+  // 3. The hook's needs_input overlay (purging expired entries along the way).
   for (const [id, o] of overrides) {
     if (!overrideActive(o)) {
       overrides.delete(id);
@@ -167,7 +169,7 @@ function snapshot() {
       base.state = "needs_input";
       base.request = o.request || base.request || null;
     } else {
-      // Hook sans découverte (session distante, dossier custom…) : on crée la tête.
+      // Hook without discovery (remote session, custom folder…): create the head.
       byId.set(id, { id, name: o.name || id, state: "needs_input", quote: null, request: o.request || null, updatedAt: now() });
     }
   }
@@ -185,12 +187,12 @@ function broadcast() {
       res.write(payload);
     } catch (err) {
       console.warn("[claudy] client SSE perdu :", err?.message || err);
-      clients.delete(res); // client mort : on le purge plutôt que de planter
+      clients.delete(res); // dead client: drop it rather than crash
     }
   }
 }
 
-/** Crée ou met à jour un agent puis diffuse l'état. */
+/** Creates or updates an agent then broadcasts the state. */
 function upsertAgent(id, patch = {}) {
   const existing = agents.get(id);
   const next = {
@@ -203,15 +205,17 @@ function upsertAgent(id, patch = {}) {
     childExtra: patch.childExtra ?? existing?.childExtra ?? 0,
     swarm: patch.swarm ?? existing?.swarm ?? null,
     activity: patch.activity ?? existing?.activity ?? null,
+    mode: patch.mode ?? existing?.mode ?? null,
+    effort: patch.effort ?? existing?.effort ?? null,
     waitingFor: patch.waitingFor ?? existing?.waitingFor ?? null,
     updatedAt: now(),
   };
   if (!STATES.has(next.state)) next.state = "working";
-  // Une demande sans état explicite implique needs_input.
+  // A request without an explicit state implies needs_input.
   if (patch.request && !patch.state) next.state = "needs_input";
-  // Quitter needs_input efface la demande sauf si on la repasse explicitement.
+  // Leaving needs_input clears the request unless it is explicitly set again.
   if (next.state !== "needs_input" && patch.request === undefined) next.request = null;
-  if (!existing) capMap(agents, 1000, (a) => a.updatedAt); // borne les agents manuels
+  if (!existing) capMap(agents, 1000, (a) => a.updatedAt); // bound the manual agents
   agents.set(id, next);
   broadcast();
   return next;
@@ -262,8 +266,8 @@ const MIME = {
 };
 
 async function serveStatic(res, urlPath) {
-  // Anti path-traversal robuste : on résout le chemin canonique et on exige qu'il
-  // reste SOUS PUBLIC_ROOT (le « + sep » évite qu'un dossier voisin « public-xxx » passe).
+  // Robust anti path-traversal: resolve the canonical path and require it to stay
+  // UNDER PUBLIC_ROOT (the "+ sep" prevents a sibling folder like "public-xxx" from passing).
   let rel;
   try {
     rel = decodeURIComponent(urlPath);
@@ -278,7 +282,7 @@ async function serveStatic(res, urlPath) {
     const buf = await readFile(filePath);
     res.writeHead(200, {
       "content-type": MIME[extname(filePath)] || "application/octet-stream",
-      "cache-control": "no-store", // outil local : toujours servir la dernière version
+      "cache-control": "no-store", // local tool: always serve the latest version
     });
     res.end(buf);
   } catch {
@@ -286,18 +290,18 @@ async function serveStatic(res, urlPath) {
   }
 }
 
-// ── Mode démo ─────────────────────────────────────────────────────────────────
+// ── Demo mode ───────────────────────────────────────────────────────────────────
 
 let demoTimer = null;
 const DEMO_NAMES = ["Claudy #1", "Claudy #2", "Claudy #3", "Le Poney", "L'Alien", "Le Câble"];
 
-// Essaim factice (façon workflow) de la 1ère tête démo : il PROGRESSE (les têtes en
-// cours passent à terminé) au lieu de rester figé — sinon il ressemble à un run bloqué.
+// Fake (workflow-style) swarm for the 1st demo head: it PROGRESSES (in-flight heads
+// flip to done) instead of staying frozen — otherwise it looks like a stuck run.
 const DEMO_SWARM = ["Explore", "blog-researcher", "code-review", "general-purpose", "blog-writer", "Explore", "code-review"];
-// Outils cyclés par la démo pour illustrer la ligne d'activité (dernier outil utilisé).
+// Tools cycled by the demo to illustrate the activity line (last tool used).
 const DEMO_TOOLS = ["Read", "Edit", "Bash", "Grep", "Write", "WebFetch", "mcp__claude_ai_Linear__list_issues"];
-const DEMO_FAILED_IDX = 4; // une tête échoue (pour montrer le statut rouge)
-let demoProgress = 0; // nombre de têtes déjà résolues (done/failed) ; le reste = working
+const DEMO_FAILED_IDX = 4; // one head fails (to show the red status)
+let demoProgress = 0; // number of heads already resolved (done/failed); the rest = working
 
 function buildDemoSwarm() {
   const children = DEMO_SWARM.map((name, i) => {
@@ -314,26 +318,28 @@ function startDemo(count = 3) {
   for (let i = 0; i < n; i++) {
     upsertAgent(`demo-${i + 1}`, { name: DEMO_NAMES[i], state: "working" });
   }
-  // 1ère tête : essaim « façon workflow » qui progresse (cf. buildDemoSwarm). Elle reste
-  // EN TRAVAIL pour que le contexte « workflow en cours » ait du sens.
+  // 1st head: a "workflow-style" swarm that progresses (see buildDemoSwarm). It stays
+  // WORKING so the "workflow in progress" context makes sense.
   demoProgress = 0;
   upsertAgent("demo-1", { state: "working", ...buildDemoSwarm() });
 
-  // Fait évoluer la démo : l'essaim de demo-1 avance d'un cran ; les autres têtes cyclent
-  // entre les états pour montrer la variété (working / idle / needs_input).
+  // Drives the demo forward: demo-1's swarm advances by one step; the other heads cycle
+  // through states to show the variety (working / idle / needs_input).
   demoTimer = setInterval(() => {
     try {
-      // Garde-fou : si une vraie session est présente, la démo se coupe d'elle-même.
+      // Guard: if a real session is present, the demo stops itself.
       if (discovery.list().length > 0) {
         stopDemo();
         return;
       }
-      demoProgress = demoProgress >= DEMO_SWARM.length ? 0 : demoProgress + 1; // boucle
-      // demo-1 « travaille » : son activité (outil) cycle pour illustrer la ligne d'activité.
+      demoProgress = demoProgress >= DEMO_SWARM.length ? 0 : demoProgress + 1; // loop
+      // demo-1 "works": its activity (tool) cycles to illustrate the activity line.
       const tool = DEMO_TOOLS[Math.floor(now() / 1500) % DEMO_TOOLS.length];
       upsertAgent("demo-1", {
         state: "working",
         activity: { tool, model: "claude-opus-4-8" },
+        mode: "acceptEdits",
+        effort: "ultracode", // showcase the ultracode badge
         ...buildDemoSwarm(),
       });
       for (let i = 1; i < n; i++) {
@@ -343,10 +349,10 @@ function startDemo(count = 3) {
           upsertAgent(id, {
             state: "needs_input",
             request: "Chef, ou tu sors ou j'te sors, mais faudra prendre une décision.",
-            waitingFor: "dialog open", // illustre la raison d'attente au survol
+            waitingFor: "dialog open", // illustrates the wait reason on hover
           });
         } else if (roll === 7) {
-          upsertAgent(id, { state: "idle" });
+          upsertAgent(id, { state: "idle", mode: "plan", effort: "high" });
         } else {
           upsertAgent(id, {
             state: "working",
@@ -373,21 +379,21 @@ function stopDemo() {
   broadcast();
 }
 
-// ── Routage ──────────────────────────────────────────────────────────────────
+// ── Routing ────────────────────────────────────────────────────────────────────
 
 const server = http.createServer(async (req, res) => {
   const method = req.method || "GET";
   const origin = req.headers.origin;
 
-  // Anti DNS-rebinding : on n'accepte que les hôtes loopback. Un site qui « rebind »
-  // son domaine vers 127.0.0.1 envoie un Host non-local → rejeté d'emblée.
+  // Anti DNS-rebinding: only loopback hosts are accepted. A site that "rebinds"
+  // its domain to 127.0.0.1 sends a non-local Host → rejected right away.
   if (!isLocalHost(req.headers.host)) {
     res.writeHead(403);
     return res.end();
   }
 
-  // CORS restreint : on ne reflète QUE des origines loopback (jamais « * »). Les
-  // scripts/CLI (curl, hook, app menubar) n'envoient pas d'Origin → non concernés.
+  // Restricted CORS: we ONLY reflect loopback origins (never "*"). Scripts/CLI
+  // (curl, hook, menubar app) don't send an Origin → not affected.
   if (origin && isLocalOrigin(origin)) {
     res.setHeader("access-control-allow-origin", origin);
     res.setHeader("vary", "origin");
@@ -399,13 +405,13 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // Anti-CSRF : une requête de navigateur cross-origin (Origin présent et NON-local) est
-  // refusée — y compris les « simple requests » qui échappent au préflight CORS.
+  // Anti-CSRF: a cross-origin browser request (Origin present and NON-local) is
+  // refused — including the "simple requests" that bypass the CORS preflight.
   if (origin && !isLocalOrigin(origin)) {
     return sendJson(res, 403, { error: "origine non autorisée" });
   }
 
-  // Host validé ci-dessus → parsing d'URL sûr.
+  // Host validated above → safe URL parsing.
   let url;
   try {
     url = new URL(req.url, `http://${req.headers.host}`);
@@ -415,7 +421,7 @@ const server = http.createServer(async (req, res) => {
   const path = url.pathname;
 
   try {
-    // Flux SSE temps réel.
+    // Real-time SSE stream.
     if (path === "/api/events" && method === "GET") {
       res.writeHead(200, {
         "content-type": "text/event-stream",
@@ -425,7 +431,7 @@ const server = http.createServer(async (req, res) => {
       res.write(`data: ${JSON.stringify(snapshot())}\n\n`);
       clients.add(res);
       const ping = setInterval(() => res.write(": ping\n\n"), 15000);
-      ping.unref?.(); // ne maintient pas le process en vie → arrêt propre possible
+      ping.unref?.(); // doesn't keep the process alive → clean shutdown possible
       req.on("close", () => {
         clearInterval(ping);
         clients.delete(res);
@@ -441,8 +447,8 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, snapshot());
     }
 
-    // Configuration : GET renvoie schéma + valeurs + clés verrouillées par l'env ;
-    // PUT applique un patch (écrit ~/.config/claudy/config.json, applique à chaud).
+    // Configuration: GET returns schema + values + keys locked by the env;
+    // PUT applies a patch (writes ~/.config/claudy/config.json, applied live).
     if (path === "/api/config") {
       if (method === "GET") return sendJson(res, 200, config.meta());
       if (method === "PUT" || method === "POST") {
@@ -452,7 +458,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // Démo : POST /api/demo  { action: "start"|"stop", count?: number }
+    // Demo: POST /api/demo  { action: "start"|"stop", count?: number }
     if (path === "/api/demo" && method === "POST") {
       const body = await readBody(req);
       if (body.action === "stop") {
@@ -463,9 +469,9 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { ok: true, demo: true, count });
     }
 
-    // Overlay needs_input du hook : /api/notify/:id
-    //   POST { request?, name? }  → pose l'alerte rouge
-    //   POST { clear:true } | DELETE → la lève
+    // The hook's needs_input overlay: /api/notify/:id
+    //   POST { request?, name? }  → raises the red alert
+    //   POST { clear:true } | DELETE → clears it
     const notifyMatch = path.match(/^\/api\/notify\/([^/]+)$/);
     if (notifyMatch && (method === "POST" || method === "DELETE")) {
       const id = decodeURIComponent(notifyMatch[1]);
@@ -475,19 +481,19 @@ const server = http.createServer(async (req, res) => {
       } else {
         const request = asText(body.request);
         const name = asText(body.name);
-        if (!overrides.has(id)) capMap(overrides, 2000, (o) => o.at); // borne les alertes
+        if (!overrides.has(id)) capMap(overrides, 2000, (o) => o.at); // bound the alerts
         overrides.set(id, { request, name, at: now() });
-        // Rafraîchit l'affichage à l'expiration du TTL même sans autre événement.
+        // Refreshes the display when the TTL expires even without another event.
         setTimeout(() => broadcast(), config.get().overrideTtlMs).unref?.();
-        // Les notifications natives sont émises par l'app menubar (UserNotifications) :
-        // elle peut router le clic vers la bonne session et porter le logo, ce qu'osascript
-        // (attribué à « Éditeur de script ») ne permettait pas.
+        // Native notifications are emitted by the menubar app (UserNotifications):
+        // it can route the click to the right session and carry the logo, which osascript
+        // (attributed to "Script Editor") could not do.
       }
       broadcast();
       return sendJson(res, 200, { ok: true });
     }
 
-    // Aller à la fenêtre de l'agent : /api/focus/:id (active VS Code/terminal/…)
+    // Jump to the agent's window: /api/focus/:id (activates VS Code/terminal/…)
     const focusMatch = path.match(/^\/api\/focus\/([^/]+)$/);
     if (focusMatch && method === "POST") {
       const id = decodeURIComponent(focusMatch[1]);
@@ -504,7 +510,7 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, result);
     }
 
-    // Agent individuel : /api/agents/:id
+    // Single agent: /api/agents/:id
     const match = path.match(/^\/api\/agents\/([^/]+)$/);
     if (match) {
       const id = decodeURIComponent(match[1]);
@@ -525,7 +531,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // Sinon : fichiers statiques.
+    // Otherwise: static files.
     if (method === "GET") return serveStatic(res, path);
 
     sendJson(res, 405, { error: "méthode non autorisée" });
@@ -534,9 +540,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-// Applique à chaud les réglages changés via l'UI (PUT /api/config). La découverte se
-// reconfigure seule (elle relit config.get() à chaque scan) ; ici on gère les effets
-// de bord du serveur : (dé)couper les notifs Claude Code, et rediffuser l'état.
+// Applies settings changed via the UI live (PUT /api/config). Discovery reconfigures
+// itself (it re-reads config.get() on every scan); here we handle the server-side
+// side effects: muting/unmuting Claude Code's notifications, and re-broadcasting the state.
 config.setOnChange((changed) => {
   if (changed.includes("muteCc")) muteClaude(config.get().muteCc ? "on" : "off");
   broadcast();
@@ -544,7 +550,7 @@ config.setOnChange((changed) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`\n  👓  agent-claudy en écoute sur  http://${HOST}:${PORT}\n`);
-  // Le timer tourne toujours ; scanOnce respecte le réglage `discover` à chaud.
+  // The timer always runs; scanOnce honors the `discover` setting live.
   discovery.start();
   console.log(`  🔎  Auto-découverte des sessions Claude Code ${config.get().discover ? "activée" : "en veille (réglage discover off)"}.`);
   console.log(`  ⚙  Réglages : ${config.CONFIG_PATH}`);
@@ -555,7 +561,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  Ouvre cette URL dans ton navigateur.\n`);
 });
 
-// Restaure les notifs de Claude Code à l'arrêt propre du serveur.
+// Restores Claude Code's notifications on a clean server shutdown.
 function shutdown() {
   muteClaude("off");
   process.exit(0);

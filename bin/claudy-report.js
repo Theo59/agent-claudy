@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// claudy-report — pousse l'état d'un agent vers le serveur agent-claudy.
+// claudy-report — pushes an agent's state to the agent-claudy server.
 //
-// Exemples :
+// Examples:
 //   node bin/claudy-report.js mon-agent working
 //   node bin/claudy-report.js mon-agent working --name "Crawler" --quote "Y a moyen de tout"
 //   node bin/claudy-report.js mon-agent needs_input --request "Je continue ?"
 //   node bin/claudy-report.js mon-agent idle
 //   node bin/claudy-report.js mon-agent --delete
 //
-// Cible le serveur via CLAUDY_URL (défaut http://127.0.0.1:4310) ou --url.
+// Targets the server via CLAUDY_URL (default http://127.0.0.1:4310) or --url.
 
 const STATES = ["working", "idle", "needs_input", "offline"];
 
@@ -23,8 +23,8 @@ function parseArgs(argv) {
       opts.help = true;
     } else if (a.startsWith("--")) {
       const value = argv[++i];
-      // Une option attendant une valeur mais sans valeur (ou suivie d'une autre
-      // option) est une erreur explicite plutôt qu'un oubli silencieux.
+      // An option that expects a value but has none (or is followed by another
+      // option) is an explicit error rather than a silent oversight.
       if (value === undefined || value.startsWith("--")) {
         opts.error = `valeur manquante pour ${a}`;
         break;
@@ -50,7 +50,7 @@ async function main() {
   const { positional, opts } = parseArgs(process.argv.slice(2));
   const [id, state] = positional;
 
-  if (opts.help || id === "help") return usage(); // aide propre, code de sortie 0
+  if (opts.help || id === "help") return usage(); // clean help, exit code 0
   if (opts.error) return usage(opts.error);
   if (!id) return usage("id manquant");
   if (state && !STATES.includes(state)) return usage(`état inconnu « ${state} »`);

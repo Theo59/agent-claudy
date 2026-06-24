@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <!-- Marque Claudy (aviateurs Ray-Ban + moustache), définie UNE fois et réutilisée
-         partout via <use href="#claudy-mark"> → un seul endroit à modifier. -->
+    <!-- Claudy mark (Ray-Ban aviators + moustache), defined ONCE and reused
+         everywhere via <use href="#claudy-mark"> → a single place to edit. -->
     <svg width="0" height="0" style="position: absolute" aria-hidden="true">
       <symbol id="claudy-mark" viewBox="0 0 64 42" fill="currentColor">
         <path d="M6 11 Q32 7 58 11 L58 13.5 Q32 9.5 6 13.5 Z" />
@@ -55,11 +55,11 @@
     </header>
 
     <main id="grid" class="grid">
-      <!-- Les cartes d'agents sont injectées ici par app.js -->
+      <!-- Agent cards are injected here by app.js -->
     </main>
 
-    <!-- Région d'annonce dédiée : on n'y pousse QUE les demandes (needs_input),
-         pas le défilement des citations, pour ne pas saturer les lecteurs d'écran. -->
+    <!-- Dedicated announcement region: we push ONLY requests (needs_input) here,
+         not the scrolling quotes, so screen readers don't get overwhelmed. -->
     <div id="sr-live" class="sr-only" role="status" aria-live="polite"></div>
 
     <div id="empty" class="empty">
