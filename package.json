@@ -1,0 +1,70 @@
+{
+  "name": "agent-claudy",
+  "displayName": "agent-claudy",
+  "version": "0.2.0",
+  "description": "Visualiseur d'agents IA : chaque agent est une tête de Claudy Focan en pixel art qui parle, attend ou réclame.",
+  "publisher": "theo",
+  "type": "module",
+  "main": "./extension/extension.cjs",
+  "bin": {
+    "claudy-report": "./bin/claudy-report.js"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js"
+  },
+  "engines": {
+    "node": ">=18",
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Visualization", "Other"],
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "agent-claudy", "title": "agent-claudy", "icon": "media/claudy.svg" }
+      ]
+    },
+    "views": {
+      "agent-claudy": [
+        { "id": "agentClaudy.panel", "name": "Agents", "type": "webview" }
+      ]
+    },
+    "commands": [
+      { "command": "agentClaudy.open", "title": "Ouvrir le panneau", "category": "agent-claudy" },
+      { "command": "agentClaudy.openInBrowser", "title": "Ouvrir dans le navigateur", "category": "agent-claudy", "icon": "$(globe)" },
+      { "command": "agentClaudy.restartServer", "title": "Redémarrer le serveur", "category": "agent-claudy", "icon": "$(refresh)" },
+      { "command": "agentClaudy.toggleDemo", "title": "Démo (démarrer / arrêter)", "category": "agent-claudy", "icon": "$(play-circle)" },
+      { "command": "agentClaudy.reportState", "title": "Définir l'état d'un agent…", "category": "agent-claudy" },
+      { "command": "agentClaudy.installHooks", "title": "Installer les hooks Claude Code", "category": "agent-claudy" }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "agentClaudy.toggleDemo", "when": "view == agentClaudy.panel", "group": "navigation@1" },
+        { "command": "agentClaudy.restartServer", "when": "view == agentClaudy.panel", "group": "navigation@2" },
+        { "command": "agentClaudy.openInBrowser", "when": "view == agentClaudy.panel", "group": "navigation@3" }
+      ]
+    },
+    "configuration": {
+      "title": "agent-claudy",
+      "properties": {
+        "agentClaudy.port": {
+          "type": "number",
+          "default": 4310,
+          "description": "Port du serveur local agent-claudy."
+        },
+        "agentClaudy.autoStartServer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Démarrer (ou réutiliser) le serveur automatiquement à l'ouverture de VS Code."
+        },
+        "agentClaudy.autoStartDemo": {
+          "type": "boolean",
+          "default": false,
+          "description": "Lancer le mode démo automatiquement au démarrage."
+        }
+      }
+    }
+  },
+  "license": "MIT"
+}

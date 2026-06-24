@@ -1,0 +1,39 @@
+# Dépendances (le projet n'en a aucune pour l'instant, mais au cas où)
+node_modules/
+
+# Réglages Claude Code locaux/personnels (ne jamais publier)
+.claude/settings.local.json
+
+# Logs & runtime
+*.log
+*.pid
+*.tmp
+.DS_Store
+
+# Fichiers temporaires d'éditeur (vim/emacs)
+*.swp
+*.swo
+*~
+
+# Secrets / config locale
+.env
+.env.local
+
+# Artefacts d'éditeur — on garde la config de lancement de l'extension
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+
+# Sauvegarde créée par la commande « Installer les hooks » (et variantes horodatées)
+*.bak
+*.bak.*
+
+# Artefacts de build des apps Mac (régénérés par mac/build-*.sh)
+mac/*.app/
+
+# Empaquetage de l'extension VS Code
+*.vsix
+
+# Dump intermédiaire du générateur de pixel art (tools/render-claudy.cjs)
+claudy-grid*.json

@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Pre-commit zéro-dépendance pour agent-claudy.
+#   1. vérifie la syntaxe des fichiers JS/CJS/MJS modifiés (node --check) ;
+#   2. bloque tout chemin absolu personnel (/Users/<qqn>) dans le CODE livré (repo public).
+# Activé via : git config core.hooksPath .githooks   (déjà fait à l'install).
+# Contourner ponctuellement : git commit --no-verify
+
+set -euo pipefail
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+fail=0
+
+# 1. Syntaxe JS
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  case "$f" in
+    *.js | *.cjs | *.mjs)
+      if [ -f "$f" ]; then
+        node --check "$f" || { echo "✗ Syntaxe invalide : $f"; fail=1; }
+      fi
+      ;;
+  esac
+done <<< "$staged"
+
+# 2. Chemins personnels dans le code (les docs .md peuvent citer des chemins d'exemple)
+code=$(printf '%s\n' "$staged" | grep -E '\.(js|cjs|mjs|swift|sh|json|html|css)$' || true)
+if [ -n "$code" ]; then
+  # shellcheck disable=SC2086
+  if grep -nE '/Users/[a-z]' $code 2>/dev/null; then
+    echo "✗ Chemin personnel « /Users/... » détecté dans un fichier de code (repo public)."
+    fail=1
+  fi
+fi
+
+exit "$fail"
