@@ -1,0 +1,784 @@
+:root {
+  --bg: #14110d;
+  --bg-2: #1d1812;
+  --card: #241d16;
+  --card-border: #3a2e22;
+  --ink: #f3e9d8;
+  --muted: #a8967c;
+  --accent: #d8a657;
+  --green: #6fae5a;
+  --amber: #e0a93b;
+  --red: #d65a4a;
+  --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--mono);
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #2a2118 0%, transparent 60%),
+    var(--bg);
+  /* Léger grain CRT. */
+  background-attachment: fixed;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--card-border);
+  background: linear-gradient(180deg, var(--bg-2), transparent);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(6px);
+}
+
+.topbar h1 {
+  font-size: 16px;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+/* Marque (logo lunettes + moustache) reprise dans la topbar, l'état vide, le footer
+   et le panneau de réglages → identité visuelle cohérente. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-mark {
+  width: 32px;
+  height: 21px;
+  flex: none;
+  color: var(--accent);
+}
+.brand-mark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+svg.brand-mark {
+  display: block;
+}
+
+/* Bouton-icône discret (roue crantée des réglages) : remplace les gros boutons. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--card-border);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.icon-btn:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: rgba(216, 166, 87, 0.08);
+}
+/* Retour visuel du bouton refresh : l'icône tourne un instant au clic. */
+.icon-btn.spinning svg {
+  animation: spin 0.6s linear;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Vignette étroite (fenêtre flottante macOS, viewport ~258px) : toolbar ultra-compacte
+   sur une seule ligne. Le navigateur (large) garde la version complète. */
+@media (max-width: 360px) {
+  .topbar {
+    gap: 8px;
+    padding: 6px 10px;
+  }
+  .topbar h1,
+  #conn-label,
+  #count,
+  .status .sep {
+    display: none; /* le logo + le point de connexion + le résumé suffisent */
+  }
+  .status {
+    font-size: 11px;
+    gap: 5px;
+  }
+  .brand {
+    gap: 6px;
+  }
+  .brand-mark {
+    width: 26px;
+    height: 17px;
+  }
+  .icon-btn {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap; /* les compteurs passent à la ligne au lieu de déborder */
+  gap: 8px;
+  min-width: 0; /* autorise le rétrécissement dans la topbar flex (pas d'overflow) */
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sep {
+  opacity: 0.4;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot--off {
+  background: var(--red);
+}
+.dot--on {
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+
+.controls {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--bg);
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+button:hover {
+  filter: brightness(1.08);
+}
+button:active {
+  transform: translateY(1px);
+}
+button.ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--card-border);
+}
+
+.grid {
+  display: grid;
+  /* min(--tile, 100%) : une colonne ne dépasse JAMAIS la largeur dispo → plus de
+     scroll horizontal quand on rétrécit la fenêtre (sinon minmax force la largeur). */
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--tile, 160px), 100%), 1fr));
+  align-items: start; /* cases à hauteur naturelle (planche de BD), alignées en haut */
+  gap: 10px;
+  padding: 12px;
+  width: 100%;
+  margin: 0;
+}
+
+/* Case de BD : AUCUN fond, bordure épaisse couleur crème (= couleur de la bulle).
+   La bulle (même crème) colle au cadre par le haut → elle fond dans la bordure. */
+.card {
+  --frame: #efe6cf;
+  /* Couleur du contour de statut (épouse la silhouette via drop-shadow, cf. .avatar canvas). */
+  --ring: var(--card-border);
+  /* Contour qui suit les courbes du visage : on empile des drop-shadow dans 8 directions
+     (cardinales + diagonales) ; chacun trace le canal alpha de la tête détourée → liseré
+     continu épousant cheveux / joues / col. Recoloré en changeant --ring selon l'état. */
+  --outline:
+    drop-shadow(1px 0 0 var(--ring)) drop-shadow(-1px 0 0 var(--ring))
+    drop-shadow(0 1px 0 var(--ring)) drop-shadow(0 -1px 0 var(--ring))
+    drop-shadow(0.7px 0.7px 0 var(--ring)) drop-shadow(-0.7px 0.7px 0 var(--ring))
+    drop-shadow(0.7px -0.7px 0 var(--ring)) drop-shadow(-0.7px -0.7px 0 var(--ring));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 9px; /* haut sans padding : la bulle touche la bordure du haut */
+  background: transparent;
+  border: 3px solid var(--frame);
+  border-radius: 15px;
+  overflow: hidden; /* la bulle épouse les coins arrondis du cadre */
+  min-width: 0;
+  container-type: inline-size; /* permet de dimensionner la police de la bulle en cqi */
+}
+/* Tête au repos (pas de bulle) : un peu d'air en haut pour ne pas coller au cadre. */
+.card:not(:has(.bubble.show)) {
+  padding-top: 9px;
+}
+.card[data-state="needs_input"] {
+  --frame: #f3cbc4;
+}
+
+/* Avatar : la tête détourée flotte sur fond transparent (plus de cercle rogné) ;
+   le statut est porté par un contour qui suit sa silhouette (--outline sur le canvas). */
+.avatar {
+  width: var(--avatar, 64px);
+  height: var(--avatar, 64px);
+  flex: none;
+  background: transparent;
+}
+.avatar canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: var(--outline); /* liseré épousant les courbes du visage, couleur = --ring */
+  transition: filter 0.25s ease;
+}
+
+/* Couleur du contour selon l'état (le « autre moyen » d'afficher le statut). */
+.card[data-state="working"] {
+  --ring: var(--green);
+  --frame: #d3e9c3; /* cadre + bulle teintés vert quand il bosse (pendant du rosé needs_input) */
+}
+.card[data-state="working"] .avatar canvas {
+  animation: silhouette-pulse 2.4s ease-in-out infinite;
+}
+.card[data-state="idle"] {
+  --ring: var(--muted);
+  --frame: #d6d1c6; /* légèrement grisé quand il ne fait rien */
+}
+.card[data-state="offline"] {
+  --ring: #4a4338;
+  --frame: #c0bab0; /* gris éteint hors ligne */
+}
+.card[data-state="needs_input"] {
+  --ring: var(--red);
+}
+.card[data-state="needs_input"] .avatar canvas {
+  animation: silhouette-alert 0.9s ease-in-out infinite;
+}
+/* Pulsation/alerte : on ajoute une lueur (drop-shadow flou) qui suit elle aussi la
+   silhouette, en plus du liseré net. Même nombre de fonctions filter aux deux étapes
+   (lueur à flou nul au repos) pour une interpolation fluide. */
+@keyframes silhouette-pulse {
+  0%,
+  100% {
+    filter: var(--outline) drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: var(--outline) drop-shadow(0 0 9px var(--ring));
+  }
+}
+@keyframes silhouette-alert {
+  0%,
+  100% {
+    filter: var(--outline) drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: var(--outline) drop-shadow(0 0 13px var(--ring));
+  }
+}
+
+/* Essaim de sous-agents : rangée de mini-têtes sous le nom + compteur. Vide → invisible. */
+.children {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 7px 9px;
+  width: 100%;
+  padding: 0 8px;
+}
+.children:not(:has(.mini)) {
+  display: none; /* aucune mini-tête → pas d'espace réservé */
+}
+.mini {
+  /* Statut de la tête : en cours (ambre, pulse), terminé (vert), échoué (rouge).
+     Couleur portée par --ring (le contour du canvas la lit). */
+  --ring: var(--amber);
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+.mini[data-status="done"] {
+  --ring: var(--green);
+}
+.mini[data-status="failed"] {
+  --ring: var(--red);
+}
+.mini[data-status="working"] {
+  --ring: var(--amber);
+  animation: mini-pulse 1.6s ease-in-out infinite;
+}
+@keyframes mini-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.mini canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* Contour fin épousant la silhouette, comme la grande tête mais plus léger. */
+  filter:
+    drop-shadow(0.7px 0 0 var(--ring)) drop-shadow(-0.7px 0 0 var(--ring))
+    drop-shadow(0 0.7px 0 var(--ring)) drop-shadow(0 -0.7px 0 var(--ring));
+}
+.children-count {
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+}
+
+.card .name {
+  font-weight: 700;
+  font-size: 12px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  cursor: text; /* indice : double-cliquer pour renommer */
+}
+.card .name:hover {
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 2px;
+}
+/* Pendant l'édition inline : champ visible, plus de troncature. */
+.card .name.editing {
+  overflow: visible;
+  text-overflow: clip;
+  outline: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0 3px;
+  background: rgba(0, 0, 0, 0.3);
+  text-decoration: none;
+}
+
+/* Bulle BD en haut de la case, sur toute la largeur, queue vers la tête en dessous.
+   En flux (pas de chevauchement) ; affichée via .show (working / needs_input). */
+.bubble {
+  position: relative;
+  display: none;
+  width: 100%; /* pleine largeur, bord à bord avec le cadre */
+  margin-bottom: 20px; /* place pour la queue en virgule qui descend vers la tête */
+  padding: 8px 9px;
+  background: var(--frame); /* MÊME couleur que la bordure → fusion */
+  color: #15100a;
+  border: 0;
+  border-radius: 0 0 13px 13px; /* haut plat (se fond au cadre), bas arrondi */
+  /* Police proportionnelle à la largeur de la case (container query) avec bornes :
+     reste lisible sur grande tuile, ne déborde plus quand la densité réduit la case. */
+  font-size: clamp(8px, 6.2cqi, 12px);
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  /* PAS d'overflow:hidden ici : sinon la queue (::after, sous la bulle) est rognée.
+     La troncature vit sur .bubble-text. */
+}
+.bubble.show {
+  display: block;
+}
+/* Ticker : le texte vit sur UNE seule ligne. S'il tient dans la largeur → statique centré
+   (aucun mouvement, calme visuel) ; sinon → défilement (marquee). .bubble-text = viewport
+   qui rogne horizontalement. overflow:hidden OK ICI : la queue (::after) est portée par
+   .bubble, pas par ce viewport interne, donc elle n'est pas rognée. */
+.bubble-text {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.bubble:not(.is-marquee) .bubble-text {
+  text-align: center; /* tient sur une ligne → centré et immobile */
+}
+.bubble.is-marquee .bubble-text {
+  text-align: left;
+}
+/* Piste animée : 1 copie (statique) ou 2 copies identiques (boucle sans couture). */
+.bubble-track {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+}
+.bubble-seg {
+  display: inline-block;
+}
+.bubble-seg + .bubble-seg {
+  display: none; /* la 2e copie n'existe que pour le défilement */
+}
+.bubble.is-marquee .bubble-seg {
+  margin-right: 2.4em; /* écart après CHAQUE copie → demi-piste = copie + écart */
+}
+.bubble.is-marquee .bubble-seg + .bubble-seg {
+  display: inline-block;
+}
+.bubble.is-marquee .bubble-track {
+  /* durée injectée en JS = distance / vitesse → vitesse constante quelle que soit la longueur */
+  animation: bubble-marquee var(--marquee-duration, 8s) linear infinite;
+}
+@keyframes bubble-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* 2 copies égales → -50% = exactement une copie + écart : la reprise est invisible */
+    transform: translateX(-50%);
+  }
+}
+/* Accessibilité : aucun défilement si l'utilisateur réduit les animations.
+   Repli LISIBLE : le texte revient en flux et s'enroule sur quelques lignes (jamais coupé). */
+@media (prefers-reduced-motion: reduce) {
+  .bubble-track {
+    animation: none;
+    transform: none;
+    display: block;
+    white-space: normal;
+  }
+  .bubble-text {
+    white-space: normal;
+  }
+  .bubble-seg + .bubble-seg {
+    display: none !important; /* jamais de doublon en repli statique */
+  }
+  .bubble.is-marquee .bubble-seg {
+    margin-right: 0;
+  }
+  .bubble-seg {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3; /* repli : 3 lignes max puis … (texte complet en infobulle) */
+    white-space: normal;
+    overflow: hidden;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+}
+/* Queue façon BD : virgule courbe « coup de pinceau » qui s'effile et descend vers
+   la bouche de Claudy. Forme = masque SVG ; la couleur vient de var(--frame) (donc
+   crème → rosé en needs_input, comme la bulle/bordure) → la queue « sort » du cadre. */
+.bubble::after {
+  content: "";
+  position: absolute;
+  top: calc(100% - 6px); /* chevauche la bulle → fusion, pas de couture */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 35px;
+  background: var(--frame);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='14%200%2038%2044'%3E%3Cpath%20d='M16%202%20C%2030%205,%2046%205,%2050%202%20C%2042%2012,%2040%2026,%2033%2042%20C%2031%2027,%2024%2013,%2016%202%20Z'%20fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='14%200%2038%2044'%3E%3Cpath%20d='M16%202%20C%2030%205,%2046%205,%2050%202%20C%2042%2012,%2040%2026,%2033%2042%20C%2031%2027,%2024%2013,%2016%202%20Z'%20fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Résumé de statut dans la barre du haut. */
+.summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+/* Indicateur empilé : icône au-dessus, nombre dessous → mini-colonne étroite. */
+.stat {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  gap: 1px;
+}
+.stat-ico {
+  font-size: 10px;
+}
+.stat-num {
+  font-size: 11px;
+  font-weight: 700;
+}
+.stat--working {
+  color: var(--green);
+}
+.stat--needs {
+  color: var(--red);
+}
+.stat--idle {
+  color: var(--muted);
+}
+.stat--offline {
+  color: #777;
+}
+
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+.empty-mark {
+  width: 68px;
+  height: 45px;
+  color: var(--card-border);
+  margin-bottom: 8px;
+}
+.empty code {
+  background: var(--card);
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--card-border);
+}
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Réservé aux lecteurs d'écran : hors écran mais lisible par les technologies d'assistance. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  border-top: 1px solid var(--card-border);
+}
+.footer-mark {
+  width: 22px;
+  height: 15px;
+  color: var(--accent);
+  opacity: 0.7;
+  flex: none;
+}
+
+/* ── Panneau de réglages (⚙) ──────────────────────────────────────────────────
+   <dialog> natif modal : centré, fond assombri via ::backdrop. Vanilla, sans dépendance. */
+.settings {
+  width: min(560px, 92vw);
+  max-height: 86vh;
+  /* Colonne flex : la barre de titre et le pied restent fixes, le corps scrolle. */
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: var(--bg-2);
+  color: var(--ink);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+/* Petit cadre (fenêtre flottante, écran réduit) : le panneau prend toute la place et
+   scrolle, pour que TOUS les réglages restent atteignables. */
+@media (max-width: 460px), (max-height: 560px) {
+  .settings {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: 0;
+  }
+}
+.settings::backdrop {
+  background: rgba(8, 6, 4, 0.55);
+  backdrop-filter: blur(3px);
+}
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--card-border);
+  background: linear-gradient(180deg, rgba(216, 166, 87, 0.06), transparent);
+}
+.settings-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.settings-title .brand-mark {
+  width: 26px;
+  height: 17px;
+}
+.settings-body {
+  padding: 6px 16px 12px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0; /* indispensable pour qu'un enfant flex puisse scroller */
+}
+.set-section {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(58, 46, 34, 0.5);
+}
+.set-section h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap; /* sur cadre étroit : le contrôle passe sous le libellé au lieu de déborder */
+  gap: 8px 12px;
+  padding: 7px 0;
+}
+.set-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 60%; /* prend la place, laisse le contrôle à droite (ou dessous si trop étroit) */
+  font-size: 13px;
+  color: var(--ink);
+}
+.set-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.set-badge--warn {
+  color: var(--amber);
+  border: 1px solid rgba(224, 169, 59, 0.5);
+}
+.set-badge--lock {
+  color: var(--muted);
+  border: 1px solid var(--card-border);
+}
+.set-input {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 6px 9px;
+  width: 130px;
+  text-align: right;
+}
+.set-input--mini {
+  width: 56px;
+}
+.set-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.set-input:disabled {
+  opacity: 0.5;
+}
+/* Interrupteur (checkbox stylé). */
+.set-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--card-border);
+  position: relative;
+  cursor: pointer;
+  flex: none;
+  transition: background 0.18s ease;
+}
+.set-toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ink);
+  transition: transform 0.18s ease;
+}
+.set-toggle:checked {
+  background: var(--green);
+}
+.set-toggle:checked::after {
+  transform: translateX(18px);
+}
+.set-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.set-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.set-advanced {
+  padding: 12px 0 4px;
+}
+.set-advanced > summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 0;
+  user-select: none;
+}
+.set-advanced[open] > summary {
+  color: var(--ink);
+}
+.settings-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--card-border);
+  font-size: 11px;
+  color: var(--muted);
+}
+.settings-status {
+  color: var(--green);
+  font-weight: 600;
+}
+.settings-status.is-error {
+  color: var(--red);
+}
+.settings-path {
+  font-family: var(--mono);
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
