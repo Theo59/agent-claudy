@@ -1,0 +1,22 @@
+{
+  "//": "Exemple à fusionner dans ~/.claude/settings.json (ou .claude/settings.json d'un projet).",
+  "//path": "Remplace ABSOLUTE_PATH par le chemin absolu où tu as cloné agent-claudy (ex: /chemin/vers/agent-claudy).",
+  "//role": "En mode hybride, le hook ne gère QUE l'alerte rouge needs_input ; working/idle/offline viennent de l'auto-découverte du serveur.",
+  "hooks": {
+    "Notification": [
+      { "hooks": [{ "type": "command", "command": "node ABSOLUTE_PATH/bin/claudy-hook.js" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node ABSOLUTE_PATH/bin/claudy-hook.js" }] }
+    ],
+    "PreToolUse": [
+      { "hooks": [{ "type": "command", "command": "node ABSOLUTE_PATH/bin/claudy-hook.js" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node ABSOLUTE_PATH/bin/claudy-hook.js" }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "node ABSOLUTE_PATH/bin/claudy-hook.js" }] }
+    ]
+  }
+}
