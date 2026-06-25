@@ -1,0 +1,3 @@
+# Bouton « Sponsor » du dépôt → page de dons crypto (self-custody, sans tiers).
+# La page DONATIONS.md est générée par `node tools/gen-donations.cjs` depuis public/donations.json.
+custom: ["https://github.com/Theo59/agent-claudy/blob/main/DONATIONS.md"]
