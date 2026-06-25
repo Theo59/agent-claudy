@@ -64,8 +64,9 @@ a { color: var(--accent); text-decoration: none; }
   position: sticky;
   top: 0;
   z-index: 20;
-  background: linear-gradient(180deg, var(--bg-2), rgba(20, 17, 13, 0.6));
-  backdrop-filter: blur(8px);
+  /* Opaque background (no backdrop-filter blur): blurring under a sticky bar forces
+     an expensive re-rasterization on every scroll frame — the main cause of scroll jank. */
+  background: var(--bg-2);
   border-bottom: 1px solid var(--card-border);
 }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 700; }
@@ -108,6 +109,8 @@ a { color: var(--accent); text-decoration: none; }
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 30px 70px -20px rgba(0, 0, 0, 0.7);
+  /* Isolate the iframe's continuous repaints from the rest of the page. */
+  contain: paint;
 }
 .device-bar {
   display: flex;
@@ -237,6 +240,12 @@ section.steps, section.features, section.download {
   max-width: 1100px;
   margin: 0 auto;
   padding: 56px 24px;
+}
+/* Skip rendering/painting these static sections while off-screen (big scroll win).
+   contain-intrinsic-size keeps the scrollbar stable; `auto` remembers the real size. */
+section.steps, section.features, section.download, .foot {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 480px;
 }
 section h2 { font-size: clamp(22px, 3vw, 32px); margin: 0 0 28px; text-align: center; }
 .steps-grid {
