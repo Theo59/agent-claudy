@@ -13,8 +13,8 @@
 
 set -euo pipefail
 
-# Repo to clone in remote mode (to be filled in once published).
-REPO_URL="${CLAUDY_REPO:-https://github.com/CHANGE_ME/agent-claudy.git}"
+# Repo to clone in remote mode (override with CLAUDY_REPO for a fork).
+REPO_URL="${CLAUDY_REPO:-https://github.com/Theo59/agent-claudy.git}"
 
 say() { printf "\033[1;33m👓 %s\033[0m\n" "$*"; }
 warn() { printf "\033[1;31m⚠️  %s\033[0m\n" "$*" >&2; }
