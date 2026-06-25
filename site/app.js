@@ -451,7 +451,7 @@
       }
       // Repaint only when the status changes (no per-frame loop). The nod is CSS.
       if (child.status !== status) {
-        Claudy.draw(child.ctx, { px: MINI_PX, dim: status === "failed" });
+        paintChild(child.ctx, status);
       }
       child.status = status;
       child.el.dataset.status = status; // outline color (and nod animation) via CSS
@@ -480,7 +480,7 @@
     card.el.setAttribute("aria-label", `${effectiveName(agent.id)} — ${LABELS[agent.state] || agent.state}`);
 
     if (agent.state !== card.renderedState) {
-      paintHead(card.ctx, PX, agent.state); // redraw the head for the new state (dim/tint)
+      paintHead(card.ctx, PX, agent.state, agent.effort === "ultracode"); // redraw for the new state
       // Bubble ALWAYS shown → the tile height doesn't change from one state to another.
       card.bubbleEl.classList.add("show");
       if (agent.state === "working") {
@@ -599,22 +599,34 @@
 
   // ── Head painting (on state change only — the nod is CSS) ────────────────────
 
-  // Map a state to its visual: idle/offline dimmed, needs_input tinted red.
-  function paintHead(ctx, px, state) {
+  // Outline colors, baked into the canvas by Claudy.draw (no CSS filter anymore).
+  // Kept in sync with the --green/--red/--muted CSS vars and the ultracode violet.
+  const RING = { working: "#6fae5a", needs_input: "#d65a4a", idle: "#a8967c", offline: "#4a4338" };
+  const MINI_RING = { working: "#e0a93b", done: "#6fae5a", failed: "#d65a4a" };
+  const ULTRA_RING = "#8b5cf6";
+
+  // Map a state to its visual: idle/offline dimmed, needs_input tinted red,
+  // outline color per state (violet when ultracode).
+  function paintHead(ctx, px, state, ultra) {
     Claudy.draw(ctx, {
       px,
       dim: state === "idle" || state === "offline",
       tint: state === "needs_input" ? "#d65a4a" : null,
+      ring: ultra ? ULTRA_RING : RING[state] || RING.idle,
     });
+  }
+
+  function paintChild(ctx, status) {
+    Claudy.draw(ctx, { px: MINI_PX, dim: status === "failed", ring: MINI_RING[status] || MINI_RING.working });
   }
 
   // Repaint every head + mini-head with its current state (used when the face
   // image finishes loading, since there's no longer a loop to catch up).
   function repaintAll() {
     for (const card of cards.values()) {
-      paintHead(card.ctx, PX, card.el.dataset.state);
+      paintHead(card.ctx, PX, card.el.dataset.state, card.el.hasAttribute("data-ultra"));
       for (const child of card.childCards.values()) {
-        Claudy.draw(child.ctx, { px: MINI_PX, dim: child.status === "failed" });
+        paintChild(child.ctx, child.status);
       }
     }
   }

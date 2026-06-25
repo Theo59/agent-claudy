@@ -35,11 +35,11 @@ body {
   flex-wrap: wrap;
   padding: 8px 14px;
   border-bottom: 1px solid var(--card-border);
-  background: linear-gradient(180deg, var(--bg-2), transparent);
+  /* Opaque sticky bar (no backdrop-filter blur: it re-rasterizes on every scroll). */
+  background: var(--bg-2);
   position: sticky;
   top: 0;
   z-index: 10;
-  backdrop-filter: blur(6px);
 }
 
 .topbar h1 {
@@ -203,16 +203,9 @@ button.ghost {
    The bubble (same cream) sticks to the frame at the top → it blends into the border. */
 .card {
   --frame: #efe6cf;
-  /* Status outline color (hugs the silhouette via drop-shadow, cf. .avatar canvas). */
-  --ring: var(--card-border);
-  /* Outline that follows the contours of the face : we stack drop-shadows in 8 directions
-     (cardinal + diagonal) ; each traces the alpha channel of the cut-out head → continuous
-     edge hugging hair / cheeks / collar. Recolored by changing --ring per state. */
-  --outline:
-    drop-shadow(1px 0 0 var(--ring)) drop-shadow(-1px 0 0 var(--ring))
-    drop-shadow(0 1px 0 var(--ring)) drop-shadow(0 -1px 0 var(--ring))
-    drop-shadow(0.7px 0.7px 0 var(--ring)) drop-shadow(-0.7px 0.7px 0 var(--ring))
-    drop-shadow(0.7px -0.7px 0 var(--ring)) drop-shadow(-0.7px -0.7px 0 var(--ring));
+  /* The status outline color now lives in JS (RING map) and is BAKED into the
+     canvas pixels by Claudy.draw — no CSS drop-shadow filter (it wrecked scroll
+     perf, esp. Safari). --frame stays here for the comic frame + bubble tint. */
   position: relative;
   display: flex;
   flex-direction: column;
@@ -258,37 +251,29 @@ button.ghost {
   width: 100%;
   height: 100%;
   display: block;
-  /* Static silhouette outline (+ an optional steady state glow). Computed once per
-     state — we no longer animate `filter` every frame (that re-rasterized the head
-     60×/s). The "alive" nod is a cheap GPU transform instead (keyframes below). */
-  filter: var(--outline) var(--head-glow, drop-shadow(0 0 0 transparent));
-  transition: filter 0.25s ease;
-  will-change: transform;
+  /* No CSS filter at all (the outline is baked into the pixels). The only motion
+     is the nod = a cheap GPU transform (keyframes below); the infinite animation
+     promotes the layer on its own, so no `will-change` needed. */
 }
 
-/* Outline color per state (the "other way" to display the status). */
+/* Frame/bubble tint per state (the head outline color is handled in JS). */
 .card[data-state="working"] {
-  --ring: var(--green);
   --frame: #d3e9c3; /* frame + bubble tinted green while working (counterpart to needs_input pink) */
-  --head-glow: drop-shadow(0 0 6px var(--ring)); /* steady green halo, no animation */
 }
 .card[data-state="working"] .avatar canvas {
   animation: head-nod 0.55s ease-in-out infinite; /* "he's talking" */
 }
 .card[data-state="idle"] {
-  --ring: var(--muted);
   --frame: #d6d1c6; /* slightly grayed out when idle */
 }
 .card[data-state="idle"] .avatar canvas {
   animation: head-breathe 2.6s ease-in-out infinite; /* gentle breathing */
 }
 .card[data-state="offline"] {
-  --ring: #4a4338;
   --frame: #c0bab0; /* dull gray when offline */
 }
 .card[data-state="needs_input"] {
-  --ring: var(--red);
-  --head-glow: drop-shadow(0 0 8px var(--ring)); /* steady red halo */
+  --frame: #f3cbc4; /* note: also set above; pink frame while soliciting */
 }
 .card[data-state="needs_input"] .avatar canvas {
   animation: head-solicit 0.95s ease-in-out infinite;
@@ -355,11 +340,7 @@ button.ghost {
   width: 100%;
   height: 100%;
   display: block;
-  will-change: transform;
-  /* Thin outline hugging the silhouette, like the big head but lighter (static). */
-  filter:
-    drop-shadow(0.7px 0 0 var(--ring)) drop-shadow(-0.7px 0 0 var(--ring))
-    drop-shadow(0 0.7px 0 var(--ring)) drop-shadow(0 -0.7px 0 var(--ring));
+  /* Outline baked into the pixels (no CSS filter), like the big head. */
 }
 /* Working mini-heads nod too (cheap transform); done/failed stay still. */
 .mini[data-status="working"] canvas,
@@ -1004,17 +985,8 @@ button.ghost {
 .grid.anim-paused .mini { animation-play-state: paused; }
 
 
-/* Ultracode also haloes the HEAD: append violet drop-shadows to the silhouette outline
-   (keeps the green/red state color; same filter-function count as the pulse keyframes →
-   smooth interpolation). data-ultra is set by app.js when effort === "ultracode". */
-.card[data-ultra] {
-  --outline:
-    drop-shadow(1px 0 0 var(--ring)) drop-shadow(-1px 0 0 var(--ring))
-    drop-shadow(0 1px 0 var(--ring)) drop-shadow(0 -1px 0 var(--ring))
-    drop-shadow(0.7px 0.7px 0 var(--ring)) drop-shadow(-0.7px 0.7px 0 var(--ring))
-    drop-shadow(0.7px -0.7px 0 var(--ring)) drop-shadow(-0.7px -0.7px 0 var(--ring))
-    drop-shadow(0 0 4px #8b5cf6) drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
-}
+/* Ultracode haloes the HEAD in violet: the outline color is now baked into the
+   canvas (ULTRA_RING in app.js when effort === "ultracode"), so no CSS filter here. */
 @media (prefers-reduced-motion: reduce) {
   .picto--ultra { animation: none; }
 }
