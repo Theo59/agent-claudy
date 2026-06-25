@@ -258,21 +258,29 @@ button.ghost {
   width: 100%;
   height: 100%;
   display: block;
-  filter: var(--outline); /* edge hugging the contours of the face, color = --ring */
+  /* Static silhouette outline (+ an optional steady state glow). Computed once per
+     state — we no longer animate `filter` every frame (that re-rasterized the head
+     60×/s). The "alive" nod is a cheap GPU transform instead (keyframes below). */
+  filter: var(--outline) var(--head-glow, drop-shadow(0 0 0 transparent));
   transition: filter 0.25s ease;
+  will-change: transform;
 }
 
 /* Outline color per state (the "other way" to display the status). */
 .card[data-state="working"] {
   --ring: var(--green);
   --frame: #d3e9c3; /* frame + bubble tinted green while working (counterpart to needs_input pink) */
+  --head-glow: drop-shadow(0 0 6px var(--ring)); /* steady green halo, no animation */
 }
 .card[data-state="working"] .avatar canvas {
-  animation: silhouette-pulse 2.4s ease-in-out infinite;
+  animation: head-nod 0.55s ease-in-out infinite; /* "he's talking" */
 }
 .card[data-state="idle"] {
   --ring: var(--muted);
   --frame: #d6d1c6; /* slightly grayed out when idle */
+}
+.card[data-state="idle"] .avatar canvas {
+  animation: head-breathe 2.6s ease-in-out infinite; /* gentle breathing */
 }
 .card[data-state="offline"] {
   --ring: #4a4338;
@@ -280,30 +288,25 @@ button.ghost {
 }
 .card[data-state="needs_input"] {
   --ring: var(--red);
+  --head-glow: drop-shadow(0 0 8px var(--ring)); /* steady red halo */
 }
 .card[data-state="needs_input"] .avatar canvas {
-  animation: silhouette-alert 0.9s ease-in-out infinite;
+  animation: head-solicit 0.95s ease-in-out infinite;
 }
-/* Pulse/alert : we add a glow (blurred drop-shadow) that also follows the
-   silhouette, on top of the crisp edge. Same number of filter functions at both steps
-   (glow with zero blur at rest) for smooth interpolation. */
-@keyframes silhouette-pulse {
-  0%,
-  100% {
-    filter: var(--outline) drop-shadow(0 0 0 transparent);
-  }
-  50% {
-    filter: var(--outline) drop-shadow(0 0 9px var(--ring));
-  }
+
+/* The nod = a vertical oscillation done as a transform (compositor-only, cheap),
+   replacing the old per-frame canvas redraw + animated drop-shadow. */
+@keyframes head-nod {
+  0%, 100% { transform: translateY(1.6px); }
+  50% { transform: translateY(-1.6px); }
 }
-@keyframes silhouette-alert {
-  0%,
-  100% {
-    filter: var(--outline) drop-shadow(0 0 0 transparent);
-  }
-  50% {
-    filter: var(--outline) drop-shadow(0 0 13px var(--ring));
-  }
+@keyframes head-solicit {
+  0%, 100% { transform: translateY(1px); }
+  50% { transform: translateY(-1px); }
+}
+@keyframes head-breathe {
+  0%, 100% { transform: translateY(0.6px); }
+  50% { transform: translateY(-0.6px); }
 }
 
 /* Sub-agent swarm : row of mini-heads under the name + counter. Empty → invisible. */
@@ -352,10 +355,16 @@ button.ghost {
   width: 100%;
   height: 100%;
   display: block;
-  /* Thin outline hugging the silhouette, like the big head but lighter. */
+  will-change: transform;
+  /* Thin outline hugging the silhouette, like the big head but lighter (static). */
   filter:
     drop-shadow(0.7px 0 0 var(--ring)) drop-shadow(-0.7px 0 0 var(--ring))
     drop-shadow(0 0.7px 0 var(--ring)) drop-shadow(0 -0.7px 0 var(--ring));
+}
+/* Working mini-heads nod too (cheap transform); done/failed stay still. */
+.mini[data-status="working"] canvas,
+.mini:not([data-status]) canvas {
+  animation: head-nod 0.55s ease-in-out infinite;
 }
 .children-count {
   flex-basis: 100%;
@@ -535,6 +544,12 @@ button.ghost {
 /* Accessibility : no scrolling if the user reduces animations.
    READABLE fallback : the text returns to flow and wraps over a few lines (never cut off). */
 @media (prefers-reduced-motion: reduce) {
+  /* No head nodding when the user reduces motion (status still shown by color/glow). */
+  .avatar canvas,
+  .mini canvas,
+  .mini {
+    animation: none !important;
+  }
   .bubble-track {
     animation: none;
     transform: none;
@@ -982,6 +997,11 @@ button.ghost {
 .grid.hide-badges .picto { display: none; }
 .grid.hide-activity .activity { display: none; }
 .grid.hide-swarm .children { display: none; }
+/* Off-screen / hidden tab: freeze the nods (set by app.js via Page Visibility +
+   the host's IntersectionObserver). Pure CSS pause, no JS loop involved. */
+.grid.anim-paused .avatar canvas,
+.grid.anim-paused .mini canvas,
+.grid.anim-paused .mini { animation-play-state: paused; }
 
 
 /* Ultracode also haloes the HEAD: append violet drop-shadows to the silhouette outline

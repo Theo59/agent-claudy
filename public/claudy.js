@@ -20,14 +20,25 @@
 
   const img = new Image();
   let ready = false;
+  const readyCbs = [];
   img.onload = () => {
     ready = true;
+    // The canvases are now only drawn on state change (no per-frame loop), so we
+    // must repaint everything once the face image finishes loading.
+    for (const cb of readyCbs) cb();
+    readyCbs.length = 0;
   };
   img.src = "face.png";
 
   const Claudy = {
     GRID_W: NATIVE_W,
     GRID_H: NATIVE_H,
+
+    /** Run `cb` once the face image is ready (immediately if already loaded). */
+    onReady(cb) {
+      if (ready) cb();
+      else readyCbs.push(cb);
+    },
 
     /**
      * @param {CanvasRenderingContext2D} ctx
