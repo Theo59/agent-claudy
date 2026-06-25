@@ -1,12 +1,12 @@
 // Renders Claudy Focan's head onto a <canvas>.
 //
 // The face is pixel art DERIVED from a real photo of François Damiens in
-// Dikkenek (downsampled to pixels + background keyed out by tools/derive-face.cjs),
+// Dikkenek (downscaled to pixels + background cut out by tools/derive-face.cjs),
 // for a faithful likeness impossible to achieve by hand. Served by the server
 // (public/face.png) and loaded only once.
 //
-// The "he's talking" animation comes from a head nod (bob), more pronounced while
-// working, plus the quote bubble — no cartoon mouth, which would clash on a
+// The "he's talking" animation relies on a head bob, more pronounced while
+// working, plus the quote bubble — no cartoon mouth, which would look off on a
 // photo. Dimmed for "idle", red tint for "needs input".
 //
 // Exposes a global `Claudy` singleton used by app.js.
@@ -42,12 +42,12 @@
 
       ctx.save();
       ctx.imageSmoothingEnabled = false; // keep the pixels crisp
-      ctx.translate(0, bob); // head nod
+      ctx.translate(0, bob); // head bob
       if (dim) ctx.globalAlpha = 0.6; // "idle": dimmed
 
       ctx.drawImage(img, 0, 0, NATIVE_W, NATIVE_H, 0, 0, w, h);
 
-      // Mood tint (slight red when he's asking for something).
+      // Ambient tint (light red when he's calling for input).
       if (tint) {
         ctx.globalCompositeOperation = "source-atop";
         ctx.globalAlpha = 0.22;
