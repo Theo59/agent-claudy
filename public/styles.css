@@ -865,6 +865,114 @@ button.ghost {
   max-width: 60%;
 }
 
+/* ── Donation panel (❤) : reuses the .settings dialog skin ──────────────────────── */
+.icon-btn--heart {
+  color: var(--red);
+}
+.icon-btn--heart:hover {
+  color: #e9796b;
+}
+.don-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+}
+.don-blurb {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+/* One wallet : light card so the dark-on-light QR stays scannable. */
+.don-wallet {
+  background: var(--frame, #efe6cf);
+  color: #1a1208;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.don-w-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.don-w-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+.don-w-accepts {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #6a5a3c;
+  text-align: right;
+}
+.don-w-net {
+  font-size: 11px;
+  color: #6a5a3c;
+  margin-top: -4px;
+}
+.don-w-todo {
+  font-size: 12px;
+  font-style: italic;
+  color: #8a6d2c;
+}
+/* QR : white quiet-zone box, capped size, centered. */
+.don-w-qr {
+  align-self: center;
+  background: #fff;
+  padding: 8px;
+  border-radius: 8px;
+  line-height: 0;
+}
+.don-w-qr svg {
+  display: block;
+  width: 144px;
+  height: 144px;
+}
+.don-w-addr {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.don-w-addr code {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 7px;
+  padding: 7px 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: all; /* one click selects the whole address */
+}
+.don-copy {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1208;
+  background: var(--accent);
+  border: 0;
+  border-radius: 7px;
+  padding: 0 12px;
+  cursor: pointer;
+}
+.don-copy:hover {
+  filter: brightness(1.06);
+}
+.don-copy.ok {
+  background: var(--green);
+  color: #0e1408;
+}
+
 
 /* ── Visibilité configurable des éléments (config serveur → SSE → classes sur .grid) ── */
 /* Pas de hauteur fixe : la carte grandit avec son contenu → l'essaim de mini-Claudy

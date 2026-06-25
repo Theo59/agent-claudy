@@ -92,6 +92,34 @@ Ces règles s'appliquent quelle que soit la stack retenue.
 > (la plus récente en haut). Format : `### AAAA-MM-JJ — Titre court` puis des puces
 > décrivant ce qui a été fait et pourquoi.
 
+### 2026-06-25 — Donations crypto (panneau in-app self-custody + bouton Sponsor)
+- Demande : permettre de **faire un don crypto** au créateur. Choix retenus : **panneau
+  in-app self-custody** (zéro tiers, offline, fidèle au design rétro) **+** bouton **Sponsor**
+  du repo via `.github/FUNDING.yml`. Cryptos : **BTC, ETH/EVM (USDC/USDT ERC-20), SOL
+  (USDC/USDT SPL)**. URIs standard **BIP-21 / EIP-681 / Solana Pay**.
+- **Source unique** : `public/donations.json` (3 wallets + placeholders `REMPLACER_*`). Lue
+  **en direct** par le panneau navigateur ET par le générateur node → une seule place à éditer.
+  Une adresse encore en placeholder est affichée « non configurée » et ne génère **aucun QR/URI**
+  (un wallet mal configuré ne peut pas tromper un donateur).
+- **QR sans dépendance npm** : encodeur **MIT vendorisé** `public/vendor/qrcode.js`
+  (qrcode-generator 1.4.4, copie verbatim pour la licence). Marche en **navigateur** (script
+  classique → global `qrcode`) ET en **node** : le repo étant `type:module`, un `.js` est traité
+  en ESM, donc le générateur le charge via `new Function(src+';return qrcode;')()` (évite tout
+  souci d'extension ESM/CJS). QR généré **côté client** dans le panneau (swap d'adresse =
+  QR auto-régénéré, aucun asset à refaire).
+- **Panneau** (`public/donate.js`) : bouton ❤ `#donate-open` dans la topbar → `<dialog>` réutilisant
+  le skin `.settings`. Par wallet : nom + tokens acceptés + réseau + **adresse clic-pour-copier**
+  (clipboard API + fallback execCommand) + **QR**. `index.html` : bouton ❤ + `<script>` vendor avant
+  `donate.js`. CSS : cartes claires (QR sombre-sur-clair scannable), bouton copier doré → vert au succès.
+- **DONATIONS.md + QR statiques** : `tools/gen-donations.cjs` (CJS, repo type:module) régénère
+  `DONATIONS.md` (rendu GitHub, ne peut pas exécuter de JS → QR commités en `media/qr/<id>.svg`)
+  depuis le même JSON. `.github/FUNDING.yml` : `custom:` → DONATIONS.md (bouton Sponsor crypto-natif).
+- **À FAIRE par le créateur** : remplacer les 3 `address` dans `public/donations.json` par tes vraies
+  adresses (dédiées aux dons), `node tools/gen-donations.cjs`, puis **transaction test** avant publication.
+- Validé : `node --check` (donate.js), accolades CSS 172/172, JSON valide, générateur OK (placeholders →
+  0 QR ; test fausse adresse BTC → QR SVG + bloc adresse, puis restauré), serveur sert les 3 nouveaux
+  fichiers (HTTP 200). **Rendu navigateur du panneau/QR à valider au reload** (+ adresses réelles à poser).
+
 ### 2026-06-25 — Réordonnancement des cartes par glisser-déposer (persisté)
 - Demande : pouvoir **déplacer les cartes** pour s'organiser (pendant : le renommage par
   double-clic existe déjà ; même esprit de personnalisation locale).
