@@ -92,7 +92,27 @@ Ces règles s'appliquent quelle que soit la stack retenue.
 > (la plus récente en haut). Format : `### AAAA-MM-JJ — Titre court` puis des puces
 > décrivant ce qui a été fait et pourquoi.
 
-### 2026-06-25 — Retour à la hauteur naturelle (essaim visible) + compaction
+### 2026-06-25 — Réordonnancement des cartes par glisser-déposer (persisté)
+- Demande : pouvoir **déplacer les cartes** pour s'organiser (pendant : le renommage par
+  double-clic existe déjà ; même esprit de personnalisation locale).
+- **Frontend only** (`public/app.js`, `public/styles.css`), zéro changement serveur. Ordre
+  manuel persisté en **localStorage** (`claudy:order` = tableau d'ids), exactement comme les
+  surnoms (`claudy:name:*`). `applyManualOrder(list)` re-trie la liste serveur (triée par nom)
+  selon l'ordre sauvé ; les ids non encore placés gardent l'ordre serveur, en fin. `reconcile`
+  utilise désormais `applyManualOrder(list)` pour le réalignement DOM **et saute** ce
+  réalignement tant qu'un drag est en cours (`dragging`) → un message SSE entrant ne combat plus
+  le repositionnement live.
+- **DnD HTML5** : `.card` passe `draggable=true` + `dataset.agentId` ; `dragstart`/`dragend` par
+  carte (classe `.dragging`, persistance de l'ordre DOM au drop via `persistDomOrder`), et
+  `dragover`/`drop` posés **une fois** sur la grille (`setupDnd`). `dragAfterElement(x,y)` gère la
+  grille **2D** (centre le plus proche, avant/après selon le côté du curseur). `persistDomOrder`
+  ne sauve que les cartes présentes → purge auto des ids périmés.
+- **Cohabitation** : le renommage **désactive** `draggable` pendant l'édition (sinon sélectionner
+  du texte démarrerait un déplacement), réactivé au commit. La tête garde son clic « focus
+  fenêtre » (curseur pointer), le nom son curseur texte ; le **corps de carte** = `cursor: grab`
+  (→ `grabbing` à l'`:active`/`.dragging`, carte estompée à 0,45 pendant le drag).
+- Validé : `node --check`, accolades CSS 155/155, `Content-Length` du `/app.js` servi == local.
+  **Rendu/ergonomie du drag à valider au reload** (le glisser n'est pas vérifiable côté serveur).
 - Retours : (1) la **hauteur fixe clippait l'essaim de mini-Claudy** (workflows dynamiques) —
   c'est l'effet wahou, à garder ; (2) compacter encore la carte.
 - **Hauteur fixe retirée** : `.card` n'a plus `height: var(--card-h)` et `.children` n'est plus

@@ -225,6 +225,15 @@ button.ghost {
   overflow: hidden; /* the bubble follows the rounded corners of the frame */
   min-width: 0;
   container-type: inline-size; /* lets the bubble font size be expressed in cqi */
+  cursor: grab; /* the card body is draggable to reorder (head = pointer, name = text) */
+}
+.card:active {
+  cursor: grabbing;
+}
+/* While being dragged : faded + lifted, so the drop target reads clearly. */
+.card.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
 }
 /* Head at rest (no bubble) : a bit of room at the top so it doesn't touch the frame. */
 .card:not(:has(.bubble.show)) {

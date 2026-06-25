@@ -72,6 +72,10 @@
   }
   // Inline name editing (double-click): makes the element editable and selects all.
   function startRename(el) {
+    // Disable the card's drag while editing, otherwise selecting text by dragging
+    // would start a card move instead.
+    const card = el.closest(".card");
+    if (card) card.draggable = false;
     el.contentEditable = "plaintext-only";
     el.classList.add("editing");
     el.focus();
@@ -86,10 +90,91 @@
     if (!el.isContentEditable) return;
     el.contentEditable = "false";
     el.classList.remove("editing");
+    const card = el.closest(".card");
+    if (card) card.draggable = true; // re-enable card drag once editing is done
     const typed = el.textContent.replace(/\s+/g, " ").trim();
     const original = (agents.get(id) || {}).name || "";
     setCustomName(id, !typed || typed === original ? null : typed);
     el.textContent = effectiveName(id);
+  }
+
+  // ── Manual card ordering (drag & drop, persisted locally) ──────────────────────
+  // A user-defined order (array of ids) takes precedence over the server's name sort,
+  // so cards can be dragged around to organise them — same spirit as the nicknames above.
+  /** @type {string|null} id of the card currently being dragged (null when idle). */
+  let dragging = null;
+  function loadOrder() {
+    try {
+      const arr = JSON.parse(localStorage.getItem("claudy:order") || "[]");
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+  function saveOrder(ids) {
+    try {
+      localStorage.setItem("claudy:order", JSON.stringify(ids));
+    } catch {
+      /* localStorage unavailable: ignore */
+    }
+  }
+  // Freezes the current DOM order into localStorage (only the cards present → stale ids
+  // get pruned automatically).
+  function persistDomOrder() {
+    const ids = [];
+    for (const el of els.grid.querySelectorAll(".card")) {
+      if (el.dataset.agentId) ids.push(el.dataset.agentId);
+    }
+    saveOrder(ids);
+  }
+  // Re-sorts the server list (sorted by name) by the saved manual order when present.
+  // Ids not yet placed keep their server order, appended after the placed ones.
+  function applyManualOrder(list) {
+    const saved = loadOrder();
+    if (!saved.length) return list;
+    const rank = new Map(saved.map((id, i) => [id, i]));
+    return list
+      .map((agent, i) => ({ agent, i }))
+      .sort((a, b) => {
+        const ra = rank.has(a.agent.id) ? rank.get(a.agent.id) : Infinity;
+        const rb = rank.has(b.agent.id) ? rank.get(b.agent.id) : Infinity;
+        return ra - rb || a.i - b.i; // ties / unplaced ids keep the server (name) order
+      })
+      .map((x) => x.agent);
+  }
+  // Picks the card the dragged one should be inserted before (null → append at the end).
+  // 2D grid: nearest card center, then before/after depending on the cursor side.
+  function dragAfterElement(x, y) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const child of els.grid.querySelectorAll(".card:not(.dragging)")) {
+      const box = child.getBoundingClientRect();
+      const cx = box.left + box.width / 2;
+      const cy = box.top + box.height / 2;
+      const dist = Math.hypot(x - cx, y - cy);
+      if (dist < bestDist) {
+        bestDist = dist;
+        const before = y < box.top || (y <= box.bottom && x < cx);
+        best = before ? child : child.nextElementSibling;
+      }
+    }
+    return best;
+  }
+  // Wires the grid-level drag handlers once (the per-card dragstart/dragend live in createCard).
+  function setupDnd() {
+    els.grid.addEventListener("dragover", (e) => {
+      if (!dragging) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      const dragEl = cards.get(dragging) && cards.get(dragging).el;
+      if (!dragEl) return;
+      const after = dragAfterElement(e.clientX, e.clientY);
+      if (after == null) els.grid.appendChild(dragEl);
+      else if (after !== dragEl) els.grid.insertBefore(dragEl, after);
+    });
+    els.grid.addEventListener("drop", (e) => {
+      if (dragging) e.preventDefault(); // keep the DOM order we built during dragover
+    });
   }
 
   // "Reduce motion" preference: when enabled, the ticker doesn't scroll
@@ -213,6 +298,26 @@
     const el = document.createElement("article");
     el.className = "card";
     el.dataset.state = agent.state;
+    el.dataset.agentId = agent.id; // identifies the card for reordering
+    // Drag to reorder: the saved order then takes precedence over the server's name sort.
+    el.draggable = true;
+    el.addEventListener("dragstart", (e) => {
+      dragging = agent.id;
+      el.classList.add("dragging");
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = "move";
+        try {
+          e.dataTransfer.setData("text/plain", agent.id);
+        } catch {
+          /* some browsers forbid setData here: harmless */
+        }
+      }
+    });
+    el.addEventListener("dragend", () => {
+      el.classList.remove("dragging");
+      dragging = null;
+      persistDomOrder(); // freeze the new order
+    });
 
     const avatar = document.createElement("div");
     avatar.className = "avatar"; // status outline hugging the silhouette (CSS via data-state)
@@ -457,16 +562,20 @@
       syncCard(card, agent);
     }
 
-    // Realign the DOM order with the order (sorted by name) received from the server, but WITHOUT
-    // touching the DOM if the order hasn't changed: we only move a node if it isn't
-    // already in place. Essential — re-appendChild'ing every node on each
-    // SSE message reset the scroll (loss of position, unbearable).
-    let prev = null;
-    for (const agent of list) {
-      const el = cards.get(agent.id).el;
-      const ref = prev ? prev.nextSibling : els.grid.firstChild;
-      if (el !== ref) els.grid.insertBefore(el, ref);
-      prev = el;
+    // Realign the DOM order with the display order, but WITHOUT touching the DOM if the
+    // order hasn't changed: we only move a node if it isn't already in place. Essential —
+    // re-appendChild'ing every node on each SSE message reset the scroll (loss of position,
+    // unbearable). The display order is the user's manual order (drag & drop) when set,
+    // otherwise the server's name sort. Skipped while a drag is in progress so the live
+    // reordering isn't fought by an incoming SSE message.
+    if (!dragging) {
+      let prev = null;
+      for (const agent of applyManualOrder(list)) {
+        const el = cards.get(agent.id).el;
+        const ref = prev ? prev.nextSibling : els.grid.firstChild;
+        if (el !== ref) els.grid.insertBefore(el, ref);
+        prev = el;
+      }
     }
 
     // Counter, summary, density, empty state.
@@ -570,6 +679,7 @@
     }
 
     if (els.refresh) els.refresh.addEventListener("click", refreshNow);
+    setupDnd();
     connect();
     requestAnimationFrame(frame);
   }
