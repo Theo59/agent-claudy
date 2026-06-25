@@ -45,6 +45,8 @@
   const agents = new Map();
   /** @type {Map<string, any>} DOM card + animation state per agent */
   const cards = new Map();
+  // Préférences d'affichage (config serveur, via SSE) : lues par setActivity.
+  let display = {};
 
   // ── Manual session renaming (persisted locally via localStorage) ──────────────
   // A nickname takes precedence over the discovered/server name, for the given id.
@@ -70,6 +72,10 @@
   }
   // Inline name editing (double-click): makes the element editable and selects all.
   function startRename(el) {
+    // Disable the card's drag while editing, otherwise selecting text by dragging
+    // would start a card move instead.
+    const card = el.closest(".card");
+    if (card) card.draggable = false;
     el.contentEditable = "plaintext-only";
     el.classList.add("editing");
     el.focus();
@@ -84,10 +90,91 @@
     if (!el.isContentEditable) return;
     el.contentEditable = "false";
     el.classList.remove("editing");
+    const card = el.closest(".card");
+    if (card) card.draggable = true; // re-enable card drag once editing is done
     const typed = el.textContent.replace(/\s+/g, " ").trim();
     const original = (agents.get(id) || {}).name || "";
     setCustomName(id, !typed || typed === original ? null : typed);
     el.textContent = effectiveName(id);
+  }
+
+  // ── Manual card ordering (drag & drop, persisted locally) ──────────────────────
+  // A user-defined order (array of ids) takes precedence over the server's name sort,
+  // so cards can be dragged around to organise them — same spirit as the nicknames above.
+  /** @type {string|null} id of the card currently being dragged (null when idle). */
+  let dragging = null;
+  function loadOrder() {
+    try {
+      const arr = JSON.parse(localStorage.getItem("claudy:order") || "[]");
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+  function saveOrder(ids) {
+    try {
+      localStorage.setItem("claudy:order", JSON.stringify(ids));
+    } catch {
+      /* localStorage unavailable: ignore */
+    }
+  }
+  // Freezes the current DOM order into localStorage (only the cards present → stale ids
+  // get pruned automatically).
+  function persistDomOrder() {
+    const ids = [];
+    for (const el of els.grid.querySelectorAll(".card")) {
+      if (el.dataset.agentId) ids.push(el.dataset.agentId);
+    }
+    saveOrder(ids);
+  }
+  // Re-sorts the server list (sorted by name) by the saved manual order when present.
+  // Ids not yet placed keep their server order, appended after the placed ones.
+  function applyManualOrder(list) {
+    const saved = loadOrder();
+    if (!saved.length) return list;
+    const rank = new Map(saved.map((id, i) => [id, i]));
+    return list
+      .map((agent, i) => ({ agent, i }))
+      .sort((a, b) => {
+        const ra = rank.has(a.agent.id) ? rank.get(a.agent.id) : Infinity;
+        const rb = rank.has(b.agent.id) ? rank.get(b.agent.id) : Infinity;
+        return ra - rb || a.i - b.i; // ties / unplaced ids keep the server (name) order
+      })
+      .map((x) => x.agent);
+  }
+  // Picks the card the dragged one should be inserted before (null → append at the end).
+  // 2D grid: nearest card center, then before/after depending on the cursor side.
+  function dragAfterElement(x, y) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const child of els.grid.querySelectorAll(".card:not(.dragging)")) {
+      const box = child.getBoundingClientRect();
+      const cx = box.left + box.width / 2;
+      const cy = box.top + box.height / 2;
+      const dist = Math.hypot(x - cx, y - cy);
+      if (dist < bestDist) {
+        bestDist = dist;
+        const before = y < box.top || (y <= box.bottom && x < cx);
+        best = before ? child : child.nextElementSibling;
+      }
+    }
+    return best;
+  }
+  // Wires the grid-level drag handlers once (the per-card dragstart/dragend live in createCard).
+  function setupDnd() {
+    els.grid.addEventListener("dragover", (e) => {
+      if (!dragging) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      const dragEl = cards.get(dragging) && cards.get(dragging).el;
+      if (!dragEl) return;
+      const after = dragAfterElement(e.clientX, e.clientY);
+      if (after == null) els.grid.appendChild(dragEl);
+      else if (after !== dragEl) els.grid.insertBefore(dragEl, after);
+    });
+    els.grid.addEventListener("drop", (e) => {
+      if (dragging) e.preventDefault(); // keep the DOM order we built during dragover
+    });
   }
 
   // "Reduce motion" preference: when enabled, the ticker doesn't scroll
@@ -143,19 +230,15 @@
   // full text in the tooltip. Then we (re)measure to choose static vs scrolling.
   // Current tool → emoji + short label. MCP tools (mcp__server__action)
   // are shortened to "server/action". Unknown → raw name.
-  const TOOL_ICONS = {
-    Read: "📖", Edit: "✏️", Write: "📝", Bash: "❯_", Grep: "🔍", Glob: "🗂️",
-    Task: "🤖", Agent: "🤖", WebFetch: "🌐", WebSearch: "🔎", TodoWrite: "✓",
-    Workflow: "🕸️", NotebookEdit: "📓", Skill: "🧩",
-  };
+  // Nom de l'outil tel quel (texte mono, sans emoji → reste dans le design system).
+  // Les outils MCP sont raccourcis en « serveur/action ».
   function prettyTool(tool) {
     if (!tool) return "";
     if (tool.startsWith("mcp__")) {
       const parts = tool.split("__");
-      return `🔌 ${parts[1] || ""}${parts[2] ? "/" + parts[2] : ""}`;
+      return `${parts[1] || ""}${parts[2] ? "/" + parts[2] : ""}`;
     }
-    const ico = TOOL_ICONS[tool];
-    return ico ? `${ico} ${tool}` : tool;
+    return tool;
   }
   // claude-opus-4-8 → "Opus 4.8"; claude-sonnet-4-6 → "Sonnet 4.6"; etc.
   function prettyModel(model) {
@@ -178,29 +261,30 @@
 
   // Updates the activity line; empty → hidden (CSS via :empty).
   // Permission mode (permissionMode) -> readable chip. "default" stays hidden (normal).
-  const MODE_LABEL = { plan: "📋 Plan", acceptEdits: "✏️ Edit", bypassPermissions: "⚠️ Bypass", auto: "⚙️ Auto" };
-  function prettyMode(mode) {
-    if (!mode || mode === "default") return "";
-    return MODE_LABEL[mode] || mode;
-  }
-  // Effort level -> chip. Only elevated levels are shown; ultracode is highlighted
-  // (the user mainly wants to see whether ultracode is on). low/medium stay hidden.
-  const EFFORT_LABEL = { high: "Effort high", xhigh: "Effort xhigh", max: "Effort max", ultracode: "⚡ ULTRACODE" };
-  function prettyEffort(effort) {
-    if (!effort) return "";
-    return EFFORT_LABEL[effort] || "";
-  }
-  // Updates the mode + effort chips; ultracode gets a dedicated class for emphasis.
+  // Mode -> corner picto (top-left). Only behaviour-changing modes; auto/default empty.
+  const MODE_PICTO = { plan: "plan", acceptEdits: "edit", bypassPermissions: "bypass", auto: "auto", default: "normal" };
+  const MODE_TITLE = { plan: "Mode plan", acceptEdits: "Mode edit (auto-accept)", bypassPermissions: "Mode bypass permissions", auto: "Mode auto", default: "Mode normal" };
+  // Effort -> corner picto (top-right). Only elevated levels; ultracode = the violet star.
+  const EFFORT_PICTO = { high: "high", xhigh: "xhigh", max: "max", ultracode: "ultra" };
+  const EFFORT_TITLE = { high: "Effort high", xhigh: "Effort xhigh", max: "Effort max", ultracode: "ULTRACODE — xhigh + workflows" };
+  // Sets the corner pictos; ultracode gets the styled star and flags the card (data-ultra)
+  // so the head itself gains a violet halo.
   function setBadges(card, mode, effort) {
-    card.modeBadgeEl.textContent = prettyMode(mode);
-    card.effortBadgeEl.textContent = prettyEffort(effort);
-    card.effortBadgeEl.classList.toggle("badge--ultra", effort === "ultracode");
+    card.pictoTLEl.textContent = MODE_PICTO[mode] || "";
+    card.pictoTLEl.title = MODE_TITLE[mode] || "";
+    card.pictoTREl.textContent = EFFORT_PICTO[effort] || "";
+    card.pictoTREl.title = EFFORT_TITLE[effort] || "";
+    const ultra = effort === "ultracode";
+    card.pictoTREl.classList.toggle("picto--ultra", ultra);
+    card.el.toggleAttribute("data-ultra", ultra);
   }
 
+  // Tool + model on the head's hover title (kept off the card so it stays small).
+  // Suppressed when the "activity" display pref is off.
   function setActivity(card, activity, show) {
-    const tool = show && activity ? prettyTool(activity.tool) : "";
-    const model = show && activity ? prettyModel(activity.model) : "";
-    card.activityEl.textContent = [tool, model].filter(Boolean).join(" · ");
+    const on = display.activity !== false && show && activity;
+    const txt = on ? [prettyTool(activity.tool), prettyModel(activity.model)].filter(Boolean).join(" · ") : "";
+    card.activityEl.textContent = txt;
   }
 
   function setBubble(card, text) {
@@ -214,6 +298,26 @@
     const el = document.createElement("article");
     el.className = "card";
     el.dataset.state = agent.state;
+    el.dataset.agentId = agent.id; // identifies the card for reordering
+    // Drag to reorder: the saved order then takes precedence over the server's name sort.
+    el.draggable = true;
+    el.addEventListener("dragstart", (e) => {
+      dragging = agent.id;
+      el.classList.add("dragging");
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = "move";
+        try {
+          e.dataTransfer.setData("text/plain", agent.id);
+        } catch {
+          /* some browsers forbid setData here: harmless */
+        }
+      }
+    });
+    el.addEventListener("dragend", () => {
+      el.classList.remove("dragging");
+      dragging = null;
+      persistDomOrder(); // freeze the new order
+    });
 
     const avatar = document.createElement("div");
     avatar.className = "avatar"; // status outline hugging the silhouette (CSS via data-state)
@@ -266,14 +370,15 @@
     // Hidden as long as there's nothing to show (idle session).
     // Session badges: mode (plan/edit...) + effort level (ultracode highlighted).
     // Each chip hides when empty (CSS :empty); the row collapses when both are empty.
-    const badges = document.createElement("div");
-    badges.className = "badges";
-    const modeBadge = document.createElement("span");
-    modeBadge.className = "badge badge--mode";
-    const effortBadge = document.createElement("span");
-    effortBadge.className = "badge badge--effort";
-    badges.append(modeBadge, effortBadge);
+    // Corner pictos hugging the head: mode (top-left) + effort (top-right). Absolute,
+    // zero card height, hidden when empty. Tool/model go on the head's hover title.
+    const pictoTL = document.createElement("div");
+    pictoTL.className = "picto picto--tl";
+    const pictoTR = document.createElement("div");
+    pictoTR.className = "picto picto--tr picto--effort";
+    avatar.append(pictoTL, pictoTR);
 
+    // Thin line under the name: current tool + model (e.g. "✏️ Edit · Opus 4.8").
     const activity = document.createElement("div");
     activity.className = "activity";
 
@@ -285,7 +390,7 @@
     children.appendChild(childCount);
 
     // Comic-panel order: bubble on top, head in the middle, name, activity, then the swarm.
-    el.append(bubble, avatar, name, badges, activity, children);
+    el.append(bubble, avatar, name, activity, children);
     els.grid.appendChild(el);
 
     const card = {
@@ -297,9 +402,10 @@
       bubbleTextEl: bubbleText,
       bubbleTrackEl: bubbleTrack,
       bubbleSegEls: [seg0, seg1],
+      avatarEl: avatar,
+      pictoTLEl: pictoTL,
+      pictoTREl: pictoTR,
       activityEl: activity,
-      modeBadgeEl: modeBadge,
-      effortBadgeEl: effortBadge,
       childrenEl: children,
       childCountEl: childCount,
       childCards: new Map(), // childId -> { el, ctx, phase }
@@ -399,11 +505,20 @@
   }
 
   // Responsive density: the more agents there are, the smaller the tiles.
+  // Display prefs (server config): toggle element visibility via grid-level classes.
+  // Missing key defaults to visible (true) so an older server doesn't hide everything.
+  function applyDisplay(d) {
+    display = d || {};
+    els.grid.classList.toggle("hide-bubble", display.bubble === false);
+    els.grid.classList.toggle("hide-badges", display.badges === false);
+    els.grid.classList.toggle("hide-swarm", display.swarm === false);
+  }
+
   function applyDensity(n) {
     // Single-line bubble (ticker) → very compact tiles: 2 columns fit from ~258px
     // (the floating window), and the grid stacks more of them on a wide screen.
     const [tile, avatar] =
-      n <= 8 ? [100, 52] : n <= 16 ? [92, 47] : n <= 32 ? [84, 42] : [78, 37];
+      n <= 8 ? [100, 50] : n <= 16 ? [92, 46] : n <= 32 ? [84, 40] : [78, 36];
     els.grid.style.setProperty("--tile", `${tile}px`);
     els.grid.style.setProperty("--avatar", `${avatar}px`);
   }
@@ -447,16 +562,20 @@
       syncCard(card, agent);
     }
 
-    // Realign the DOM order with the order (sorted by name) received from the server, but WITHOUT
-    // touching the DOM if the order hasn't changed: we only move a node if it isn't
-    // already in place. Essential — re-appendChild'ing every node on each
-    // SSE message reset the scroll (loss of position, unbearable).
-    let prev = null;
-    for (const agent of list) {
-      const el = cards.get(agent.id).el;
-      const ref = prev ? prev.nextSibling : els.grid.firstChild;
-      if (el !== ref) els.grid.insertBefore(el, ref);
-      prev = el;
+    // Realign the DOM order with the display order, but WITHOUT touching the DOM if the
+    // order hasn't changed: we only move a node if it isn't already in place. Essential —
+    // re-appendChild'ing every node on each SSE message reset the scroll (loss of position,
+    // unbearable). The display order is the user's manual order (drag & drop) when set,
+    // otherwise the server's name sort. Skipped while a drag is in progress so the live
+    // reordering isn't fought by an incoming SSE message.
+    if (!dragging) {
+      let prev = null;
+      for (const agent of applyManualOrder(list)) {
+        const el = cards.get(agent.id).el;
+        const ref = prev ? prev.nextSibling : els.grid.firstChild;
+        if (el !== ref) els.grid.insertBefore(el, ref);
+        prev = el;
+      }
     }
 
     // Counter, summary, density, empty state.
@@ -521,7 +640,10 @@
     es.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
-        if (msg.type === "agents") reconcile(msg.agents);
+        if (msg.type === "agents") {
+          applyDisplay(msg.display);
+          reconcile(msg.agents);
+        }
       } catch {
         /* ping or non-JSON message: ignored */
       }
@@ -534,7 +656,10 @@
     try {
       const res = await fetch("/api/agents");
       const data = await res.json();
-      if (data && data.type === "agents") reconcile(data.agents);
+      if (data && data.type === "agents") {
+        applyDisplay(data.display);
+        reconcile(data.agents);
+      }
     } catch {
       /* server unreachable: the button just stops spinning */
     }
@@ -554,6 +679,7 @@
     }
 
     if (els.refresh) els.refresh.addEventListener("click", refreshNow);
+    setupDnd();
     connect();
     requestAnimationFrame(frame);
   }

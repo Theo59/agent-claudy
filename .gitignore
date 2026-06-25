@@ -1,8 +1,9 @@
 # Dépendances (le projet n'en a aucune pour l'instant, mais au cas où)
 node_modules/
 
-# Réglages Claude Code locaux/personnels (ne jamais publier)
+# Réglages Claude Code locaux/personnels & verrous runtime (ne jamais publier)
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # Logs & runtime
 *.log

@@ -39,6 +39,12 @@ const SCHEMA = [
   { key: "notifySound", env: "CLAUDY_NOTIFY_SOUND", type: "bool", default: true, group: "Notifications", label: "Son de notification" },
   { key: "muteCc", env: "CLAUDY_MUTE_CC", type: "bool", default: false, group: "Notifications", label: "Couper les notifs natives de Claude Code (anti-doublon)" },
   { key: "overrideTtlMs", env: "CLAUDY_OVERRIDE_TTL_MS", type: "number", default: 10 * 60 * 1000, group: "Notifications", label: "Expiration d'une alerte non levée (ms)", advanced: true },
+
+  // Affichage : éléments visibles sur chaque carte (purement visuel, poussé en live via SSE).
+  { key: "showBubble", env: "CLAUDY_SHOW_BUBBLE", type: "bool", default: true, group: "Affichage", label: "Bulle de réplique" },
+  { key: "showBadges", env: "CLAUDY_SHOW_BADGES", type: "bool", default: true, group: "Affichage", label: "Pictos mode / effort (ultracode)" },
+  { key: "showActivity", env: "CLAUDY_SHOW_ACTIVITY", type: "bool", default: true, group: "Affichage", label: "Activité au survol de la tête (outil + modèle)" },
+  { key: "showSwarm", env: "CLAUDY_SHOW_SWARM", type: "bool", default: true, group: "Affichage", label: "Essaim de sous-agents (mini-têtes)" },
 ];
 
 const BY_KEY = new Map(SCHEMA.map((s) => [s.key, s]));

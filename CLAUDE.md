@@ -79,8 +79,9 @@ Ces règles s'appliquent quelle que soit la stack retenue.
 
 ## Workflow Git
 
-- Ce dossier n'est pas encore un dépôt Git. À initialiser au démarrage du projet : `git init`.
-- Branches : travailler sur une branche dédiée, pas directement sur la branche par défaut.
+- **Une nouvelle branche par feature / modification.** Ne jamais empiler plusieurs
+  changements sans rapport sur une même branche, ni travailler directement sur `main` :
+  tirer une branche dédiée (`feat/…`, `fix/…`, `docs/…`) au début de chaque tâche.
 - Commits **atomiques** au format [Conventional Commits](https://www.conventionalcommits.org/) :
   `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`…
 - Ne commiter / pusher que sur demande explicite.
@@ -90,6 +91,104 @@ Ces règles s'appliquent quelle que soit la stack retenue.
 > Convention : à chaque session de travail significative, ajouter une entrée datée
 > (la plus récente en haut). Format : `### AAAA-MM-JJ — Titre court` puis des puces
 > décrivant ce qui a été fait et pourquoi.
+
+### 2026-06-25 — Réordonnancement des cartes par glisser-déposer (persisté)
+- Demande : pouvoir **déplacer les cartes** pour s'organiser (pendant : le renommage par
+  double-clic existe déjà ; même esprit de personnalisation locale).
+- **Frontend only** (`public/app.js`, `public/styles.css`), zéro changement serveur. Ordre
+  manuel persisté en **localStorage** (`claudy:order` = tableau d'ids), exactement comme les
+  surnoms (`claudy:name:*`). `applyManualOrder(list)` re-trie la liste serveur (triée par nom)
+  selon l'ordre sauvé ; les ids non encore placés gardent l'ordre serveur, en fin. `reconcile`
+  utilise désormais `applyManualOrder(list)` pour le réalignement DOM **et saute** ce
+  réalignement tant qu'un drag est en cours (`dragging`) → un message SSE entrant ne combat plus
+  le repositionnement live.
+- **DnD HTML5** : `.card` passe `draggable=true` + `dataset.agentId` ; `dragstart`/`dragend` par
+  carte (classe `.dragging`, persistance de l'ordre DOM au drop via `persistDomOrder`), et
+  `dragover`/`drop` posés **une fois** sur la grille (`setupDnd`). `dragAfterElement(x,y)` gère la
+  grille **2D** (centre le plus proche, avant/après selon le côté du curseur). `persistDomOrder`
+  ne sauve que les cartes présentes → purge auto des ids périmés.
+- **Cohabitation** : le renommage **désactive** `draggable` pendant l'édition (sinon sélectionner
+  du texte démarrerait un déplacement), réactivé au commit. La tête garde son clic « focus
+  fenêtre » (curseur pointer), le nom son curseur texte ; le **corps de carte** = `cursor: grab`
+  (→ `grabbing` à l'`:active`/`.dragging`, carte estompée à 0,45 pendant le drag).
+- Validé : `node --check`, accolades CSS 155/155, `Content-Length` du `/app.js` servi == local.
+  **Rendu/ergonomie du drag à valider au reload** (le glisser n'est pas vérifiable côté serveur).
+- Retours : (1) la **hauteur fixe clippait l'essaim de mini-Claudy** (workflows dynamiques) —
+  c'est l'effet wahou, à garder ; (2) compacter encore la carte.
+- **Hauteur fixe retirée** : `.card` n'a plus `height: var(--card-h)` et `.children` n'est plus
+  une zone scrollable → la carte **regrandit** pour afficher TOUTES les mini-têtes (grille déjà en
+  `align-items:start`, donc rangées en hauteurs libres facon planche). `applyDensity` ne pose plus
+  `--card-h` (revert ; ne garde que `--tile`/`--avatar`).
+- **Compaction** : `.card` gap 8→6, padding-bottom 9→6 ; queue de bulle `margin-bottom` 20→15.
+  Cartes sans essaim = compactes ; cartes avec workflow = grandissent pour l'effet wahou.
+- Validé : `node --check`, accolades CSS 153/153, essaim/mini/syncChildren intacts, zéro `--card-h`.
+  **À valider au reload** (notamment un workflow en cours pour revoir l'essaim).
+
+### 2026-06-25 — Pictos → étiquettes texte mono, dans les coins hauts (design system)
+- Retours : (1) les emoji (💬 ⚙️ ★) sortent du design system (mono / crème / rétro) ; (2) les
+  placer plus haut, dans les coins de la carte (croquis utilisateur : ovales aux coins).
+- Pictos refaits en **étiquettes-pilules texte mono** (`plan`/`edit`/`auto`/`bypass`/`normal` ;
+  `high`/`xhigh`/`max`/`ultra`), bordure fine + fond sombre translucide, **uppercase** 8px →
+  langage visuel du projet. Placées **top: -13px** (creux bulle↔tête) contre les bords (offset
+  `calc((--avatar−--tile)/2)` qui suit la densité). `ULTRA` = texte violet **multicolore animé**
+  (`ultra-rainbow` sur `color`) + lueur `currentColor` + bordure violette ; halo violet sur la
+  tête conservé. Emoji aussi retirés de la ligne d'activité (`prettyTool` → nom brut, MCP =
+  « serveur/action »). Validé : `node --check`, accolades CSS 155/155. **À valider au reload.**
+
+### 2026-06-25 — Révision pictos : tout rendre visible (mode/modèle/action) + étoile lisible
+- Retour : « je ne vois ni le mode, ni le modèle, ni l'action ». Le design *minimal* cachait trop
+  (mode `auto` masqué, modèle/outil passés en infobulle), et l'étoile ultracode était quasi
+  invisible (`background-clip:text` + `text-fill: transparent` → glyphe transparent).
+- Corrigé : **mode TOUJOURS affiché** (picto TL : ⚙️ auto, 💬 default, 📋 plan, ✏️ edit, ⛔ bypass) ;
+  **ligne action + modèle réaffichée** sous le nom (« ❯_ Bash · Opus 4.8 ») — réglable via
+  `showActivity` ; **étoile ultracode lisible** : violet vif #a78bfa, 16px, cyclant dans
+  l'arc-en-ciel (`@keyframes ultra-rainbow` sur `color`, glow en `currentColor`) → visible + multicolore.
+- Hauteurs un poil relevées pour la ligne (150→166 / 140→156 / 128→144 / 118→132), toujours bien
+  en deçà des 214 d'origine. Validé : `node --check`, accolades CSS 155/155 ; API live →
+  `cc-b24cd8db` = mode auto + effort ultracode + activity (Bash, Opus 4.8). **À valider au reload.**
+
+### 2026-06-25 — Petites cartes : pictos en coins de tête + ultracode violet/multicolore
+- Retour utilisateur : cartes trop grandes ; exploiter l'espace **autour de la tête** (coins
+  haut-gauche / haut-droit) en **pictos** ; **ultracode** distingué en **violet** ou multicolore.
+- **Design choisi par workflow** (4 directions × 3 juges, gagnant *two-corner-minimal* 72/75 ;
+  greffes intégrées) : 2 pictos absolus sur `.avatar` — **mode** en haut-gauche (📋 plan / ✏️ edit /
+  ⚠️ bypass ; `auto`/`default` masqués), **effort** en haut-droit (▲ high / ⏫ xhigh / ⚡ max ;
+  **★ ultracode**). Offsets négatifs → **zéro hauteur ajoutée**. `:empty` → cachés. Outil + modèle
+  basculés en **infobulle de la tête** (plus de ligne d'activité dans le flux).
+- **Ultracode** (double signal) : l'étoile ★ = **dégradé conique multicolore** (`background-clip:text`)
+  + **shimmer** animé (`hue-rotate` 0→360) + lueur violette ; ET un **halo violet sur la silhouette**
+  de la tête (on AJOUTE 2 `drop-shadow` violets à `--outline` pour `.card[data-ultra]`, en gardant
+  la couleur d'état et le même nombre de fonctions filter que les keyframes → interpolation fluide).
+  `prefers-reduced-motion` coupe l'animation.
+- **Cartes plus petites** : hauteurs `--card-h` 214/200/186/174 → **150/140/128/118** ; l'essaim
+  reste la zone scrollable interne (taille fixe préservée).
+- Nettoyage : suppression du CSS/JS des anciens « badges » (chips sous le nom) devenus morts ;
+  `showBadges` pilote désormais les pictos (`.grid.hide-badges .picto`), `showActivity` l'infobulle ;
+  libellés config mis à jour. `data-ultra` posé en JS quand `effort==="ultracode"`.
+- Validé : `node --check` (3 fichiers) ; accolades CSS équilibrées (149/149), zéro réf morte ;
+  API live → `cc-b24cd8db` (cette session) repérée `effort=ultracode` (étoile + halo). Édité via
+  scripts atomiques (course continue avec la session de traduction des commentaires). **Rendu visuel
+  des pictos / de l'ultracode à valider au reload** ; hauteurs faciles à réajuster.
+
+### 2026-06-25 — Cartes à taille fixe + éléments d'affichage configurables
+- Demande : les cartes ne doivent **plus grandir** avec le contenu (taille **fixe**, on pave
+  l'espace dispo), et les **éléments visibles** doivent être paramétrables.
+- **Taille fixe** : `applyDensity` (app.js) pose désormais aussi `--card-h` par palier de densité
+  (214 / 200 / 186 / 174 px). `styles.css` : `.card { height: var(--card-h) }` ; l'**essaim**
+  (`.children`) devient la zone flexible **scrollable** (`flex:1; min-height:0; overflow-y:auto`)
+  → il défile À L'INTÉRIEUR de la carte au lieu de l'agrandir. Grille `align-items:start` +
+  hauteur fixe = rangées uniformes.
+- **Visibilité configurable** : 4 bascules (`showBubble`, `showBadges`, `showActivity`,
+  `showSwarm`, défaut on) ajoutées au `SCHEMA` (`server/config.js`, groupe **Affichage**, env
+  `CLAUDY_SHOW_*`). `snapshot()` (server.js) joint un bloc `display` à CHAQUE snapshot ; comme
+  `config.onChange` déclenche `broadcast()`, une bascule s'applique **en live** via SSE. Frontend :
+  `applyDisplay()` pose des classes sur `.grid` (`hide-bubble/-badges/-activity/-swarm`) → CSS
+  masque ; clé absente = visible (compat ancien serveur). Le panneau ⚙ (settings.js, rendu par
+  groupe) affiche le groupe Affichage automatiquement.
+- Validé : `node --check` (3 fichiers) ; `/api/config` expose le groupe Affichage ; `display`
+  présent dans le snapshot ; `PUT {showActivity:false}` → `display.activity=false` instantané.
+  Édité via script atomique (course persistante avec la session de traduction des commentaires).
+  **Rendu visuel (hauteur fixe, scroll de l'essaim, bascules) à valider au reload.**
 
 ### 2026-06-25 — Mode de session (plan/edit) + niveau d'effort (ultracode visible)
 - Suite de la remontée d'infos : on affiche désormais le **mode** de la session
