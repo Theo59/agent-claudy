@@ -45,6 +45,8 @@
   const agents = new Map();
   /** @type {Map<string, any>} DOM card + animation state per agent */
   const cards = new Map();
+  // Préférences d'affichage (config serveur, via SSE) : lues par setActivity.
+  let display = {};
 
   // ── Manual session renaming (persisted locally via localStorage) ──────────────
   // A nickname takes precedence over the discovered/server name, for the given id.
@@ -143,19 +145,15 @@
   // full text in the tooltip. Then we (re)measure to choose static vs scrolling.
   // Current tool → emoji + short label. MCP tools (mcp__server__action)
   // are shortened to "server/action". Unknown → raw name.
-  const TOOL_ICONS = {
-    Read: "📖", Edit: "✏️", Write: "📝", Bash: "❯_", Grep: "🔍", Glob: "🗂️",
-    Task: "🤖", Agent: "🤖", WebFetch: "🌐", WebSearch: "🔎", TodoWrite: "✓",
-    Workflow: "🕸️", NotebookEdit: "📓", Skill: "🧩",
-  };
+  // Nom de l'outil tel quel (texte mono, sans emoji → reste dans le design system).
+  // Les outils MCP sont raccourcis en « serveur/action ».
   function prettyTool(tool) {
     if (!tool) return "";
     if (tool.startsWith("mcp__")) {
       const parts = tool.split("__");
-      return `🔌 ${parts[1] || ""}${parts[2] ? "/" + parts[2] : ""}`;
+      return `${parts[1] || ""}${parts[2] ? "/" + parts[2] : ""}`;
     }
-    const ico = TOOL_ICONS[tool];
-    return ico ? `${ico} ${tool}` : tool;
+    return tool;
   }
   // claude-opus-4-8 → "Opus 4.8"; claude-sonnet-4-6 → "Sonnet 4.6"; etc.
   function prettyModel(model) {
@@ -178,29 +176,30 @@
 
   // Updates the activity line; empty → hidden (CSS via :empty).
   // Permission mode (permissionMode) -> readable chip. "default" stays hidden (normal).
-  const MODE_LABEL = { plan: "📋 Plan", acceptEdits: "✏️ Edit", bypassPermissions: "⚠️ Bypass", auto: "⚙️ Auto" };
-  function prettyMode(mode) {
-    if (!mode || mode === "default") return "";
-    return MODE_LABEL[mode] || mode;
-  }
-  // Effort level -> chip. Only elevated levels are shown; ultracode is highlighted
-  // (the user mainly wants to see whether ultracode is on). low/medium stay hidden.
-  const EFFORT_LABEL = { high: "Effort high", xhigh: "Effort xhigh", max: "Effort max", ultracode: "⚡ ULTRACODE" };
-  function prettyEffort(effort) {
-    if (!effort) return "";
-    return EFFORT_LABEL[effort] || "";
-  }
-  // Updates the mode + effort chips; ultracode gets a dedicated class for emphasis.
+  // Mode -> corner picto (top-left). Only behaviour-changing modes; auto/default empty.
+  const MODE_PICTO = { plan: "plan", acceptEdits: "edit", bypassPermissions: "bypass", auto: "auto", default: "normal" };
+  const MODE_TITLE = { plan: "Mode plan", acceptEdits: "Mode edit (auto-accept)", bypassPermissions: "Mode bypass permissions", auto: "Mode auto", default: "Mode normal" };
+  // Effort -> corner picto (top-right). Only elevated levels; ultracode = the violet star.
+  const EFFORT_PICTO = { high: "high", xhigh: "xhigh", max: "max", ultracode: "ultra" };
+  const EFFORT_TITLE = { high: "Effort high", xhigh: "Effort xhigh", max: "Effort max", ultracode: "ULTRACODE — xhigh + workflows" };
+  // Sets the corner pictos; ultracode gets the styled star and flags the card (data-ultra)
+  // so the head itself gains a violet halo.
   function setBadges(card, mode, effort) {
-    card.modeBadgeEl.textContent = prettyMode(mode);
-    card.effortBadgeEl.textContent = prettyEffort(effort);
-    card.effortBadgeEl.classList.toggle("badge--ultra", effort === "ultracode");
+    card.pictoTLEl.textContent = MODE_PICTO[mode] || "";
+    card.pictoTLEl.title = MODE_TITLE[mode] || "";
+    card.pictoTREl.textContent = EFFORT_PICTO[effort] || "";
+    card.pictoTREl.title = EFFORT_TITLE[effort] || "";
+    const ultra = effort === "ultracode";
+    card.pictoTREl.classList.toggle("picto--ultra", ultra);
+    card.el.toggleAttribute("data-ultra", ultra);
   }
 
+  // Tool + model on the head's hover title (kept off the card so it stays small).
+  // Suppressed when the "activity" display pref is off.
   function setActivity(card, activity, show) {
-    const tool = show && activity ? prettyTool(activity.tool) : "";
-    const model = show && activity ? prettyModel(activity.model) : "";
-    card.activityEl.textContent = [tool, model].filter(Boolean).join(" · ");
+    const on = display.activity !== false && show && activity;
+    const txt = on ? [prettyTool(activity.tool), prettyModel(activity.model)].filter(Boolean).join(" · ") : "";
+    card.activityEl.textContent = txt;
   }
 
   function setBubble(card, text) {
@@ -266,14 +265,15 @@
     // Hidden as long as there's nothing to show (idle session).
     // Session badges: mode (plan/edit...) + effort level (ultracode highlighted).
     // Each chip hides when empty (CSS :empty); the row collapses when both are empty.
-    const badges = document.createElement("div");
-    badges.className = "badges";
-    const modeBadge = document.createElement("span");
-    modeBadge.className = "badge badge--mode";
-    const effortBadge = document.createElement("span");
-    effortBadge.className = "badge badge--effort";
-    badges.append(modeBadge, effortBadge);
+    // Corner pictos hugging the head: mode (top-left) + effort (top-right). Absolute,
+    // zero card height, hidden when empty. Tool/model go on the head's hover title.
+    const pictoTL = document.createElement("div");
+    pictoTL.className = "picto picto--tl";
+    const pictoTR = document.createElement("div");
+    pictoTR.className = "picto picto--tr picto--effort";
+    avatar.append(pictoTL, pictoTR);
 
+    // Thin line under the name: current tool + model (e.g. "✏️ Edit · Opus 4.8").
     const activity = document.createElement("div");
     activity.className = "activity";
 
@@ -285,7 +285,7 @@
     children.appendChild(childCount);
 
     // Comic-panel order: bubble on top, head in the middle, name, activity, then the swarm.
-    el.append(bubble, avatar, name, badges, activity, children);
+    el.append(bubble, avatar, name, activity, children);
     els.grid.appendChild(el);
 
     const card = {
@@ -297,9 +297,10 @@
       bubbleTextEl: bubbleText,
       bubbleTrackEl: bubbleTrack,
       bubbleSegEls: [seg0, seg1],
+      avatarEl: avatar,
+      pictoTLEl: pictoTL,
+      pictoTREl: pictoTR,
       activityEl: activity,
-      modeBadgeEl: modeBadge,
-      effortBadgeEl: effortBadge,
       childrenEl: children,
       childCountEl: childCount,
       childCards: new Map(), // childId -> { el, ctx, phase }
@@ -399,11 +400,20 @@
   }
 
   // Responsive density: the more agents there are, the smaller the tiles.
+  // Display prefs (server config): toggle element visibility via grid-level classes.
+  // Missing key defaults to visible (true) so an older server doesn't hide everything.
+  function applyDisplay(d) {
+    display = d || {};
+    els.grid.classList.toggle("hide-bubble", display.bubble === false);
+    els.grid.classList.toggle("hide-badges", display.badges === false);
+    els.grid.classList.toggle("hide-swarm", display.swarm === false);
+  }
+
   function applyDensity(n) {
     // Single-line bubble (ticker) → very compact tiles: 2 columns fit from ~258px
     // (the floating window), and the grid stacks more of them on a wide screen.
     const [tile, avatar] =
-      n <= 8 ? [100, 52] : n <= 16 ? [92, 47] : n <= 32 ? [84, 42] : [78, 37];
+      n <= 8 ? [100, 50] : n <= 16 ? [92, 46] : n <= 32 ? [84, 40] : [78, 36];
     els.grid.style.setProperty("--tile", `${tile}px`);
     els.grid.style.setProperty("--avatar", `${avatar}px`);
   }
@@ -521,7 +531,10 @@
     es.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
-        if (msg.type === "agents") reconcile(msg.agents);
+        if (msg.type === "agents") {
+          applyDisplay(msg.display);
+          reconcile(msg.agents);
+        }
       } catch {
         /* ping or non-JSON message: ignored */
       }
@@ -534,7 +547,10 @@
     try {
       const res = await fetch("/api/agents");
       const data = await res.json();
-      if (data && data.type === "agents") reconcile(data.agents);
+      if (data && data.type === "agents") {
+        applyDisplay(data.display);
+        reconcile(data.agents);
+      }
     } catch {
       /* server unreachable: the button just stops spinning */
     }

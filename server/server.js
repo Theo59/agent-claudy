@@ -131,6 +131,7 @@ function capMap(map, max, getAt) {
 // Merged view broadcast to the browser: auto-discovered sessions + manual agents
 // (demo/CLI) + the hook's needs_input overlay laid over the same id.
 function snapshot() {
+  const cfg = config.get();
   const byId = new Map();
 
   // 1. Auto-discovered sessions (working / idle) + their swarm of sub-agents.
@@ -177,6 +178,9 @@ function snapshot() {
   return {
     type: "agents",
     agents: [...byId.values()].sort((a, b) => String(a.name).localeCompare(String(b.name), "fr")),
+    // Display prefs (server config): pushed with every snapshot so the frontend can
+    // show/hide elements live (config.onChange triggers broadcast()).
+    display: { bubble: cfg.showBubble, badges: cfg.showBadges, activity: cfg.showActivity, swarm: cfg.showSwarm },
   };
 }
 

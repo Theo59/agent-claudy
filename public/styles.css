@@ -217,8 +217,8 @@ button.ghost {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 0 0 9px; /* no top padding : the bubble touches the top border */
+  gap: 6px;
+  padding: 0 0 6px; /* no top padding : the bubble touches the top border */
   background: transparent;
   border: 3px solid var(--frame);
   border-radius: 15px;
@@ -239,6 +239,7 @@ button.ghost {
 .avatar {
   width: var(--avatar, 64px);
   height: var(--avatar, 64px);
+  position: relative; /* anchor for the corner pictos */
   flex: none;
   background: transparent;
 }
@@ -372,8 +373,63 @@ button.ghost {
 }
 /* Current activity : latest tool + model, right under the name. Discreet, truncated,
    hidden when empty (otherwise the card's flex gap would reserve phantom space). */
+/* Corner pictos hugging the head: mode (top-left) + effort (top-right). Absolutely
+   positioned with negative offsets so they sit in the empty corners → ZERO card height.
+   Hidden when empty. Tool/model live on the head's hover title instead. */
+/* Étiquettes-pilules (mode haut-gauche, effort haut-droit) : texte mono — pas d'emoji,
+   on reste dans le design system (crème/rétro). Calées dans les COINS HAUTS de la carte
+   (au-dessus de la tête), contre les bords ; l'offset latéral suit la largeur réelle. */
+.picto {
+  position: absolute;
+  top: -13px; /* dans le creux entre la bulle et la tête → coins hauts */
+  white-space: nowrap; /* la pilule reste sur une ligne, dimensionnée au contenu */
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1.5;
+  padding: 0 5px;
+  color: var(--muted);
+  background: rgba(20, 17, 13, 0.55);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  pointer-events: none; /* never block the click-to-focus on the head */
+  z-index: 3;
+}
+.picto:empty {
+  display: none;
+}
+.picto--tl {
+  left: calc((var(--avatar, 50px) - var(--tile, 100px)) / 2 + 2px);
+}
+.picto--tr {
+  right: calc((var(--avatar, 50px) - var(--tile, 100px)) / 2 + 2px);
+}
+.picto--effort {
+  color: var(--accent);
+  border-color: rgba(216, 166, 87, 0.5);
+}
+/* Ultracode star: violet base + multicolor shimmer (animated hue) + violet glow → unmistakable. */
+/* Ultracode star: solid bright violet, bigger, cycling through the rainbow with a glow
+   that follows the color (currentColor) → unmistakable and actually visible. */
+.picto--ultra {
+  color: #c4b5fd;
+  border-color: #8b5cf6;
+  filter: drop-shadow(0 0 5px currentColor) drop-shadow(0 0 9px rgba(139, 92, 246, 0.5));
+  animation: ultra-rainbow 3s linear infinite;
+}
+@keyframes ultra-rainbow {
+  0%   { color: #8b5cf6; }
+  25%  { color: #ec4899; }
+  50%  { color: #f59e0b; }
+  75%  { color: #22d3ee; }
+  100% { color: #8b5cf6; }
+}
+
+/* Thin activity line under the name: current tool + model. Hidden when empty (idle). */
 .card .activity {
-  margin-top: -4px; /* pulls closer to the name (the card's 8px gap is too wide here) */
+  margin-top: -2px;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -387,44 +443,7 @@ button.ghost {
   display: none;
 }
 
-/* Session badges: mode (plan/edit) + effort level (ultracode highlighted). */
-.badges {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 4px;
-  max-width: 100%;
-  margin-top: -2px;
-}
-/* Row collapses when neither chip has content (avoids a phantom flex gap). */
-.badges:not(:has(.badge:not(:empty))) {
-  display: none;
-}
-.badge {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--card-border);
-  color: var(--muted);
-  white-space: nowrap;
-}
-.badge:empty {
-  display: none;
-}
-.badge--mode {
-  color: var(--ink);
-  border-color: var(--accent);
-}
-/* Ultracode: the star — bright filled chip with a glow so it stands out at a glance. */
-.badge--ultra {
-  color: #14110d;
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 8px rgba(216, 166, 87, 0.6);
-}
-/* During inline editing : field visible, no truncation. */
+/* Inline editing: visible field, no truncation. */
 .card .name.editing {
   overflow: visible;
   text-overflow: clip;
@@ -441,7 +460,7 @@ button.ghost {
   position: relative;
   display: none;
   width: 100%; /* full width, edge to edge with the frame */
-  margin-bottom: 20px; /* room for the comma-shaped tail descending toward the head */
+  margin-bottom: 15px; /* room for the comma-shaped tail descending toward the head */
   padding: 8px 9px;
   background: var(--frame); /* SAME color as the border → merge */
   color: #15100a;
@@ -835,4 +854,30 @@ button.ghost {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 60%;
+}
+
+
+/* ── Visibilité configurable des éléments (config serveur → SSE → classes sur .grid) ── */
+/* Pas de hauteur fixe : la carte grandit avec son contenu → l'essaim de mini-Claudy
+   (workflows dynamiques) s'affiche EN ENTIER (l'effet wahou). Grille align-items:start. */
+.grid.hide-bubble .bubble { display: none; }
+.grid.hide-bubble .card { padding-top: 9px; }
+.grid.hide-badges .picto { display: none; }
+.grid.hide-activity .activity { display: none; }
+.grid.hide-swarm .children { display: none; }
+
+
+/* Ultracode also haloes the HEAD: append violet drop-shadows to the silhouette outline
+   (keeps the green/red state color; same filter-function count as the pulse keyframes →
+   smooth interpolation). data-ultra is set by app.js when effort === "ultracode". */
+.card[data-ultra] {
+  --outline:
+    drop-shadow(1px 0 0 var(--ring)) drop-shadow(-1px 0 0 var(--ring))
+    drop-shadow(0 1px 0 var(--ring)) drop-shadow(0 -1px 0 var(--ring))
+    drop-shadow(0.7px 0.7px 0 var(--ring)) drop-shadow(-0.7px 0.7px 0 var(--ring))
+    drop-shadow(0.7px -0.7px 0 var(--ring)) drop-shadow(-0.7px -0.7px 0 var(--ring))
+    drop-shadow(0 0 4px #8b5cf6) drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
+}
+@media (prefers-reduced-motion: reduce) {
+  .picto--ultra { animation: none; }
 }
