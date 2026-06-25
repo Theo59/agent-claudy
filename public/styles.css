@@ -1,0 +1,838 @@
+:root {
+  --bg: #14110d;
+  --bg-2: #1d1812;
+  --card: #241d16;
+  --card-border: #3a2e22;
+  --ink: #f3e9d8;
+  --muted: #a8967c;
+  --accent: #d8a657;
+  --green: #6fae5a;
+  --amber: #e0a93b;
+  --red: #d65a4a;
+  --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--mono);
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #2a2118 0%, transparent 60%),
+    var(--bg);
+  /* Subtle CRT grain. */
+  background-attachment: fixed;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--card-border);
+  background: linear-gradient(180deg, var(--bg-2), transparent);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(6px);
+}
+
+.topbar h1 {
+  font-size: 16px;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+/* Brand mark (glasses + mustache logo) reused in the topbar, empty state, footer
+   and settings panel → consistent visual identity. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-mark {
+  width: 32px;
+  height: 21px;
+  flex: none;
+  color: var(--accent);
+}
+.brand-mark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+svg.brand-mark {
+  display: block;
+}
+
+/* Discreet icon button (settings gear) : replaces the bulky buttons. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--card-border);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.icon-btn:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: rgba(216, 166, 87, 0.08);
+}
+/* Visual feedback on the refresh button : the icon spins briefly on click. */
+.icon-btn.spinning svg {
+  animation: spin 0.6s linear;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Narrow viewport (macOS floating window, viewport ~258px) : ultra-compact toolbar
+   on a single line. The (wide) browser keeps the full version. */
+@media (max-width: 360px) {
+  .topbar {
+    gap: 8px;
+    padding: 6px 10px;
+  }
+  .topbar h1,
+  #conn-label,
+  #count,
+  .status .sep {
+    display: none; /* the logo + connection dot + summary are enough */
+  }
+  .status {
+    font-size: 11px;
+    gap: 5px;
+  }
+  .brand {
+    gap: 6px;
+  }
+  .brand-mark {
+    width: 26px;
+    height: 17px;
+  }
+  .icon-btn {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap; /* counters wrap to the next line instead of overflowing */
+  gap: 8px;
+  min-width: 0; /* allows shrinking inside the flex topbar (no overflow) */
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sep {
+  opacity: 0.4;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot--off {
+  background: var(--red);
+}
+.dot--on {
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+
+.controls {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--bg);
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+button:hover {
+  filter: brightness(1.08);
+}
+button:active {
+  transform: translateY(1px);
+}
+button.ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--card-border);
+}
+
+.grid {
+  display: grid;
+  /* min(--tile, 100%) : a column NEVER exceeds the available width → no more
+     horizontal scroll when shrinking the window (otherwise minmax forces the width). */
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--tile, 160px), 100%), 1fr));
+  align-items: start; /* panels at natural height (comic strip), top-aligned */
+  gap: 10px;
+  padding: 12px;
+  width: 100%;
+  margin: 0;
+}
+
+/* Comic panel : NO background, thick cream-colored border (= bubble color).
+   The bubble (same cream) sticks to the frame at the top → it blends into the border. */
+.card {
+  --frame: #efe6cf;
+  /* Status outline color (hugs the silhouette via drop-shadow, cf. .avatar canvas). */
+  --ring: var(--card-border);
+  /* Outline that follows the contours of the face : we stack drop-shadows in 8 directions
+     (cardinal + diagonal) ; each traces the alpha channel of the cut-out head → continuous
+     edge hugging hair / cheeks / collar. Recolored by changing --ring per state. */
+  --outline:
+    drop-shadow(1px 0 0 var(--ring)) drop-shadow(-1px 0 0 var(--ring))
+    drop-shadow(0 1px 0 var(--ring)) drop-shadow(0 -1px 0 var(--ring))
+    drop-shadow(0.7px 0.7px 0 var(--ring)) drop-shadow(-0.7px 0.7px 0 var(--ring))
+    drop-shadow(0.7px -0.7px 0 var(--ring)) drop-shadow(-0.7px -0.7px 0 var(--ring));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 9px; /* no top padding : the bubble touches the top border */
+  background: transparent;
+  border: 3px solid var(--frame);
+  border-radius: 15px;
+  overflow: hidden; /* the bubble follows the rounded corners of the frame */
+  min-width: 0;
+  container-type: inline-size; /* lets the bubble font size be expressed in cqi */
+}
+/* Head at rest (no bubble) : a bit of room at the top so it doesn't touch the frame. */
+.card:not(:has(.bubble.show)) {
+  padding-top: 9px;
+}
+.card[data-state="needs_input"] {
+  --frame: #f3cbc4;
+}
+
+/* Avatar : the cut-out head floats on a transparent background (no more clipped circle) ;
+   the status is carried by an outline that follows its silhouette (--outline on the canvas). */
+.avatar {
+  width: var(--avatar, 64px);
+  height: var(--avatar, 64px);
+  flex: none;
+  background: transparent;
+}
+.avatar canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: var(--outline); /* edge hugging the contours of the face, color = --ring */
+  transition: filter 0.25s ease;
+}
+
+/* Outline color per state (the "other way" to display the status). */
+.card[data-state="working"] {
+  --ring: var(--green);
+  --frame: #d3e9c3; /* frame + bubble tinted green while working (counterpart to needs_input pink) */
+}
+.card[data-state="working"] .avatar canvas {
+  animation: silhouette-pulse 2.4s ease-in-out infinite;
+}
+.card[data-state="idle"] {
+  --ring: var(--muted);
+  --frame: #d6d1c6; /* slightly grayed out when idle */
+}
+.card[data-state="offline"] {
+  --ring: #4a4338;
+  --frame: #c0bab0; /* dull gray when offline */
+}
+.card[data-state="needs_input"] {
+  --ring: var(--red);
+}
+.card[data-state="needs_input"] .avatar canvas {
+  animation: silhouette-alert 0.9s ease-in-out infinite;
+}
+/* Pulse/alert : we add a glow (blurred drop-shadow) that also follows the
+   silhouette, on top of the crisp edge. Same number of filter functions at both steps
+   (glow with zero blur at rest) for smooth interpolation. */
+@keyframes silhouette-pulse {
+  0%,
+  100% {
+    filter: var(--outline) drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: var(--outline) drop-shadow(0 0 9px var(--ring));
+  }
+}
+@keyframes silhouette-alert {
+  0%,
+  100% {
+    filter: var(--outline) drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    filter: var(--outline) drop-shadow(0 0 13px var(--ring));
+  }
+}
+
+/* Sub-agent swarm : row of mini-heads under the name + counter. Empty → invisible. */
+.children {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 7px 9px;
+  width: 100%;
+  padding: 0 8px;
+}
+.children:not(:has(.mini)) {
+  display: none; /* no mini-head → no reserved space */
+}
+.mini {
+  /* Head status : working (amber, pulse), done (green), failed (red).
+     Color carried by --ring (the canvas outline reads it). */
+  --ring: var(--amber);
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+.mini[data-status="done"] {
+  --ring: var(--green);
+}
+.mini[data-status="failed"] {
+  --ring: var(--red);
+}
+.mini[data-status="working"] {
+  --ring: var(--amber);
+  animation: mini-pulse 1.6s ease-in-out infinite;
+}
+@keyframes mini-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.mini canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* Thin outline hugging the silhouette, like the big head but lighter. */
+  filter:
+    drop-shadow(0.7px 0 0 var(--ring)) drop-shadow(-0.7px 0 0 var(--ring))
+    drop-shadow(0 0.7px 0 var(--ring)) drop-shadow(0 -0.7px 0 var(--ring));
+}
+.children-count {
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+}
+
+.card .name {
+  font-weight: 700;
+  font-size: 12px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  cursor: text; /* hint : double-click to rename */
+}
+.card .name:hover {
+  text-decoration: underline dotted var(--muted);
+  text-underline-offset: 2px;
+}
+/* Current activity : latest tool + model, right under the name. Discreet, truncated,
+   hidden when empty (otherwise the card's flex gap would reserve phantom space). */
+.card .activity {
+  margin-top: -4px; /* pulls closer to the name (the card's 8px gap is too wide here) */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--muted);
+}
+.card .activity:empty {
+  display: none;
+}
+
+/* Session badges: mode (plan/edit) + effort level (ultracode highlighted). */
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  margin-top: -2px;
+}
+/* Row collapses when neither chip has content (avoids a phantom flex gap). */
+.badges:not(:has(.badge:not(:empty))) {
+  display: none;
+}
+.badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--card-border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.badge:empty {
+  display: none;
+}
+.badge--mode {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+/* Ultracode: the star — bright filled chip with a glow so it stands out at a glance. */
+.badge--ultra {
+  color: #14110d;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(216, 166, 87, 0.6);
+}
+/* During inline editing : field visible, no truncation. */
+.card .name.editing {
+  overflow: visible;
+  text-overflow: clip;
+  outline: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0 3px;
+  background: rgba(0, 0, 0, 0.3);
+  text-decoration: none;
+}
+
+/* Comic bubble at the top of the panel, full width, tail pointing to the head below.
+   In flow (no overlap) ; shown via .show (working / needs_input). */
+.bubble {
+  position: relative;
+  display: none;
+  width: 100%; /* full width, edge to edge with the frame */
+  margin-bottom: 20px; /* room for the comma-shaped tail descending toward the head */
+  padding: 8px 9px;
+  background: var(--frame); /* SAME color as the border → merge */
+  color: #15100a;
+  border: 0;
+  border-radius: 0 0 13px 13px; /* flat top (blends into the frame), rounded bottom */
+  /* Font size proportional to the panel width (container query) with bounds :
+     stays readable on a large tile, no longer overflows when density shrinks the panel. */
+  font-size: clamp(8px, 6.2cqi, 12px);
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  /* NO overflow:hidden here : otherwise the tail (::after, below the bubble) gets clipped.
+     Truncation lives on .bubble-text. */
+}
+.bubble.show {
+  display: block;
+}
+/* Ticker : the text lives on ONE single line. If it fits the width → static centered
+   (no motion, visual calm) ; otherwise → scrolling (marquee). .bubble-text = viewport
+   that clips horizontally. overflow:hidden OK HERE : the tail (::after) is carried by
+   .bubble, not by this inner viewport, so it isn't clipped. */
+.bubble-text {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.bubble:not(.is-marquee) .bubble-text {
+  text-align: center; /* fits on one line → centered and still */
+}
+.bubble.is-marquee .bubble-text {
+  text-align: left;
+}
+/* Animated track : 1 copy (static) or 2 identical copies (seamless loop). */
+.bubble-track {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+}
+.bubble-seg {
+  display: inline-block;
+}
+.bubble-seg + .bubble-seg {
+  display: none; /* the 2nd copy only exists for scrolling */
+}
+.bubble.is-marquee .bubble-seg {
+  margin-right: 2.4em; /* gap after EACH copy → half-track = copy + gap */
+}
+.bubble.is-marquee .bubble-seg + .bubble-seg {
+  display: inline-block;
+}
+.bubble.is-marquee .bubble-track {
+  /* duration injected in JS = distance / speed → constant speed regardless of length */
+  animation: bubble-marquee var(--marquee-duration, 8s) linear infinite;
+}
+@keyframes bubble-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* 2 equal copies → -50% = exactly one copy + gap : the wrap-around is invisible */
+    transform: translateX(-50%);
+  }
+}
+/* Accessibility : no scrolling if the user reduces animations.
+   READABLE fallback : the text returns to flow and wraps over a few lines (never cut off). */
+@media (prefers-reduced-motion: reduce) {
+  .bubble-track {
+    animation: none;
+    transform: none;
+    display: block;
+    white-space: normal;
+  }
+  .bubble-text {
+    white-space: normal;
+  }
+  .bubble-seg + .bubble-seg {
+    display: none !important; /* never a duplicate in the static fallback */
+  }
+  .bubble.is-marquee .bubble-seg {
+    margin-right: 0;
+  }
+  .bubble-seg {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3; /* fallback : 3 lines max then … (full text in tooltip) */
+    white-space: normal;
+    overflow: hidden;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+}
+/* Comic-style tail : curved "brushstroke" comma that tapers and descends toward
+   Claudy's mouth. Shape = SVG mask ; the color comes from var(--frame) (so
+   cream → pink in needs_input, like the bubble/border) → the tail "comes out" of the frame. */
+.bubble::after {
+  content: "";
+  position: absolute;
+  top: calc(100% - 6px); /* overlaps the bubble → merge, no seam */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 35px;
+  background: var(--frame);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='14%200%2038%2044'%3E%3Cpath%20d='M16%202%20C%2030%205,%2046%205,%2050%202%20C%2042%2012,%2040%2026,%2033%2042%20C%2031%2027,%2024%2013,%2016%202%20Z'%20fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='14%200%2038%2044'%3E%3Cpath%20d='M16%202%20C%2030%205,%2046%205,%2050%202%20C%2042%2012,%2040%2026,%2033%2042%20C%2031%2027,%2024%2013,%2016%202%20Z'%20fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Status summary in the top bar. */
+.summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+/* Stacked indicator : icon on top, number below → narrow mini-column. */
+.stat {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  gap: 1px;
+}
+.stat-ico {
+  font-size: 10px;
+}
+.stat-num {
+  font-size: 11px;
+  font-weight: 700;
+}
+.stat--working {
+  color: var(--green);
+}
+.stat--needs {
+  color: var(--red);
+}
+.stat--idle {
+  color: var(--muted);
+}
+.stat--offline {
+  color: #777;
+}
+
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+.empty-mark {
+  width: 68px;
+  height: 45px;
+  color: var(--card-border);
+  margin-bottom: 8px;
+}
+.empty code {
+  background: var(--card);
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--card-border);
+}
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Screen-reader only : off-screen but readable by assistive technologies. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  border-top: 1px solid var(--card-border);
+}
+.footer-mark {
+  width: 22px;
+  height: 15px;
+  color: var(--accent);
+  opacity: 0.7;
+  flex: none;
+}
+
+/* ── Settings panel (⚙) ──────────────────────────────────────────────────
+   native modal <dialog> : centered, darkened background via ::backdrop. Vanilla, no dependency. */
+.settings {
+  width: min(560px, 92vw);
+  max-height: 86vh;
+  /* Flex column : the title bar and footer stay fixed, the body scrolls. */
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: var(--bg-2);
+  color: var(--ink);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+/* Small frame (floating window, reduced screen) : the panel takes all the space and
+   scrolls, so that ALL the settings stay reachable. */
+@media (max-width: 460px), (max-height: 560px) {
+  .settings {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: 0;
+  }
+}
+.settings::backdrop {
+  background: rgba(8, 6, 4, 0.55);
+  backdrop-filter: blur(3px);
+}
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--card-border);
+  background: linear-gradient(180deg, rgba(216, 166, 87, 0.06), transparent);
+}
+.settings-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.settings-title .brand-mark {
+  width: 26px;
+  height: 17px;
+}
+.settings-body {
+  padding: 6px 16px 12px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0; /* essential so a flex child can scroll */
+}
+.set-section {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(58, 46, 34, 0.5);
+}
+.set-section h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap; /* on a narrow frame : the control moves below the label instead of overflowing */
+  gap: 8px 12px;
+  padding: 7px 0;
+}
+.set-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 60%; /* takes the space, leaves the control on the right (or below if too narrow) */
+  font-size: 13px;
+  color: var(--ink);
+}
+.set-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.set-badge--warn {
+  color: var(--amber);
+  border: 1px solid rgba(224, 169, 59, 0.5);
+}
+.set-badge--lock {
+  color: var(--muted);
+  border: 1px solid var(--card-border);
+}
+.set-input {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 6px 9px;
+  width: 130px;
+  text-align: right;
+}
+.set-input--mini {
+  width: 56px;
+}
+.set-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.set-input:disabled {
+  opacity: 0.5;
+}
+/* Switch (styled checkbox). */
+.set-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--card-border);
+  position: relative;
+  cursor: pointer;
+  flex: none;
+  transition: background 0.18s ease;
+}
+.set-toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ink);
+  transition: transform 0.18s ease;
+}
+.set-toggle:checked {
+  background: var(--green);
+}
+.set-toggle:checked::after {
+  transform: translateX(18px);
+}
+.set-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.set-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.set-advanced {
+  padding: 12px 0 4px;
+}
+.set-advanced > summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 0;
+  user-select: none;
+}
+.set-advanced[open] > summary {
+  color: var(--ink);
+}
+.settings-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--card-border);
+  font-size: 11px;
+  color: var(--muted);
+}
+.settings-status {
+  color: var(--green);
+  font-weight: 600;
+}
+.settings-status.is-error {
+  color: var(--red);
+}
+.settings-path {
+  font-family: var(--mono);
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}

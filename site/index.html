@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>agent-claudy — tes agents Claude Code, en têtes de Claudy</title>
+    <meta
+      name="description"
+      content="Visualiseur local d'agents Claude Code : chaque session devient une tête de Claudy Focan qui parle, bosse et te réclame. Zéro dépendance, fun, à télécharger."
+    />
+    <meta property="og:title" content="agent-claudy" />
+    <meta property="og:description" content="Tes agents Claude Code, en têtes de Claudy. Éducation minimum." />
+    <meta property="og:type" content="website" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2064%2042%27%20fill=%27%23d8a657%27%3E%3Cpath%20d=%27M6%2011%20Q32%207%2058%2011%20L58%2013.5%20Q32%209.5%206%2013.5%20Z%27/%3E%3Crect%20x=%2728%27%20y=%2713%27%20width=%278%27%20height=%272%27%20rx=%271%27/%3E%3Crect%20x=%2728%27%20y=%2716.5%27%20width=%278%27%20height=%271.8%27%20rx=%27.9%27/%3E%3Cpath%20fill-rule=%27evenodd%27%20d=%27M6%2012%20C6%2012%2022%2011%2027%2013%20C29%2014%2029%2018.5%2026.5%2023.5%20C23%2030%2015%2031.5%2010.5%2028%20C6.5%2024.5%205%2018%206%2012%20Z%20M9%2014%20C8.5%2019%2010%2024.5%2013%2026.5%20C17%2028.5%2022.5%2026.5%2024.5%2021.5%20C26%2017.5%2026.5%2014.6%2025%2013.6%20C21%2011.8%2011%2012.5%209%2014%20Z%27/%3E%3Cpath%20fill-rule=%27evenodd%27%20d=%27M58%2012%20C58%2012%2042%2011%2037%2013%20C35%2014%2035%2018.5%2037.5%2023.5%20C41%2030%2049%2031.5%2053.5%2028%20C57.5%2024.5%2059%2018%2058%2012%20Z%20M55%2014%20C55.5%2019%2054%2024.5%2051%2026.5%20C47%2028.5%2041.5%2026.5%2039.5%2021.5%20C38%2017.5%2037.5%2014.6%2039%2013.6%20C43%2011.8%2053%2012.5%2055%2014%20Z%27/%3E%3Cpath%20d=%27M32%2033%20C27%2032.4%2022.5%2032.6%2021%2035.2%20C20%2037%2020.4%2039.6%2021.8%2039.8%20C23%2040%2023.2%2037.6%2024.6%2035.8%20C26.6%2033.6%2029.6%2033.6%2032%2033.8%20C34.4%2033.6%2037.4%2033.6%2039.4%2035.8%20C40.8%2037.6%2041%2040%2042.2%2039.8%20C43.6%2039.6%2044%2037%2043%2035.2%20C41.5%2032.6%2037%2032.4%2032%2033%20Z%27/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="landing.css" />
+  </head>
+  <body>
+    <!-- Claudy mark (aviators + moustache), defined once, reused via <use>. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="claudy-mark" viewBox="0 0 64 42" fill="currentColor">
+        <path d="M6 11 Q32 7 58 11 L58 13.5 Q32 9.5 6 13.5 Z" />
+        <rect x="28" y="13" width="8" height="2" rx="1" />
+        <rect x="28" y="16.5" width="8" height="1.8" rx="0.9" />
+        <path fill-rule="evenodd" d="M6 12 C6 12 22 11 27 13 C29 14 29 18.5 26.5 23.5 C23 30 15 31.5 10.5 28 C6.5 24.5 5 18 6 12 Z M9 14 C8.5 19 10 24.5 13 26.5 C17 28.5 22.5 26.5 24.5 21.5 C26 17.5 26.5 14.6 25 13.6 C21 11.8 11 12.5 9 14 Z" />
+        <path fill-rule="evenodd" d="M58 12 C58 12 42 11 37 13 C35 14 35 18.5 37.5 23.5 C41 30 49 31.5 53.5 28 C57.5 24.5 59 18 58 12 Z M55 14 C55.5 19 54 24.5 51 26.5 C47 28.5 41.5 26.5 39.5 21.5 C38 17.5 37.5 14.6 39 13.6 C43 11.8 53 12.5 55 14 Z" />
+        <path d="M32 33 C27 32.4 22.5 32.6 21 35.2 C20 37 20.4 39.6 21.8 39.8 C23 40 23.2 37.6 24.6 35.8 C26.6 33.6 29.6 33.6 32 33.8 C34.4 33.6 37.4 33.6 39.4 35.8 C40.8 37.6 41 40 42.2 39.8 C43.6 39.6 44 37 43 35.2 C41.5 32.6 37 32.4 32 33 Z" />
+      </symbol>
+    </svg>
+
+    <header class="nav">
+      <a class="brand" href="#top" aria-label="agent-claudy">
+        <svg class="brand-mark" aria-hidden="true"><use href="#claudy-mark" /></svg>
+        <span>agent-claudy</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#features">Fonctions</a>
+        <a href="#download" class="btn btn--ghost">Télécharger</a>
+        <a href="https://github.com/Theo59/agent-claudy" class="btn btn--ghost">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <!-- ── HERO + TERMINAL (the showpiece) ───────────────────────────────── -->
+      <section class="hero">
+        <div class="hero-copy">
+          <h1>Tes agents Claude Code,<br /><span class="accent">en têtes de Claudy.</span></h1>
+          <p class="lead">
+            Chaque session Claude Code devient une tête de <strong>Claudy Focan</strong> qui parle,
+            bosse, et te réclame quand elle a besoin de toi. Local, fun, zéro dépendance.
+          </p>
+          <div class="cta">
+            <a href="#download" class="btn btn--primary">▾ Télécharger l'installeur</a>
+            <a href="#demo" class="btn btn--ghost">Voir la démo</a>
+          </div>
+          <p class="muted small">macOS · Node ≥ 18 · « Éducation minimum. »</p>
+        </div>
+      </section>
+
+      <!-- Diptych: the Claude session (left) + the REAL Claudy interface (right). -->
+      <section class="scene" id="demo">
+        <div class="scene-col">
+          <p class="scene-cap">① Plusieurs sessions Claude Code, en parallèle…</p>
+          <div class="term term--mini">
+            <div class="term-bar">
+              <span class="tdot tdot--r"></span><span class="tdot tdot--y"></span><span class="tdot tdot--g"></span>
+              <span class="term-title">✶ agent-claudy</span>
+            </div>
+            <div class="term-body" id="term-cc-1"></div>
+          </div>
+          <div class="term term--mini">
+            <div class="term-bar">
+              <span class="tdot tdot--r"></span><span class="tdot tdot--y"></span><span class="tdot tdot--g"></span>
+              <span class="term-title">✶ jetsite</span>
+            </div>
+            <div class="term-body" id="term-cc-2"></div>
+          </div>
+          <div class="term term--mini">
+            <div class="term-bar">
+              <span class="tdot tdot--r"></span><span class="tdot tdot--y"></span><span class="tdot tdot--g"></span>
+              <span class="term-title">✶ daphn-e-lachavanne</span>
+            </div>
+            <div class="term-body" id="term-cc-3"></div>
+          </div>
+        </div>
+        <div class="scene-col">
+          <p class="scene-cap">② …et Claudy te le montre en direct — la vraie interface :</p>
+          <div class="device">
+            <div class="device-bar">
+              <span class="tdot tdot--r"></span><span class="tdot tdot--y"></span><span class="tdot tdot--g"></span>
+              <span class="device-title">agent-claudy</span>
+            </div>
+            <iframe
+              class="device-screen"
+              src="demo-app.html"
+              title="Aperçu de l'interface agent-claudy"
+              loading="lazy"
+            ></iframe>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── HOW IT WORKS ──────────────────────────────────────────────────── -->
+      <section class="steps">
+        <h2>Trois temps, c'est tout</h2>
+        <ol class="steps-grid">
+          <li><span class="step-n">1</span> Lance agent-claudy (ou l'app menubar).</li>
+          <li><span class="step-n">2</span> Tes sessions Claude Code apparaissent toutes seules.</li>
+          <li><span class="step-n">3</span> Clique une tête → la fenêtre de l'agent revient au premier plan.</li>
+        </ol>
+      </section>
+
+      <!-- ── FEATURES ──────────────────────────────────────────────────────── -->
+      <section class="features" id="features">
+        <h2>Ce qu'il sait faire</h2>
+        <div class="feature-grid">
+          <article class="feature">
+            <h3>Essaim de sous-agents</h3>
+            <p>Une mini-tête par sous-agent/workflow : vert = fini, rouge = raté, ambre = en cours, + compteur.</p>
+            <span class="quote">« Y a moyen de tout, tout est négociable. »</span>
+          </article>
+          <article class="feature">
+            <h3>Notifs cliquables</h3>
+            <p>Quand un agent te réclame, la notif porte le logo et le clic te ramène à la bonne session.</p>
+            <span class="quote">« Chef, faut prendre une décision ! »</span>
+          </article>
+          <article class="feature">
+            <h3>Menubar + fenêtre flottante</h3>
+            <p>Toujours sous la main dans la barre de menus, ou en vignette flottante (raccourci ⌃⌥C).</p>
+            <span class="quote">« T'es tendue comme une crampe. »</span>
+          </article>
+          <article class="feature">
+            <h3>Focus de la fenêtre</h3>
+            <p>Un clic sur une tête et VS Code / le terminal de cette session revient devant.</p>
+            <span class="quote">« Remets la petite sœur. »</span>
+          </article>
+          <article class="feature">
+            <h3>Réglages intégrés</h3>
+            <p>Tout se configure dans l'UI (⚙) — aucune variable d'environnement à éditer.</p>
+            <span class="quote">« Éducation minimum ! »</span>
+          </article>
+          <article class="feature">
+            <h3>Zéro dépendance</h3>
+            <p>Node natif + SSE. Ça se lance en local en deux secondes, sans usine à gaz.</p>
+            <span class="quote">« À la revoyure. »</span>
+          </article>
+        </div>
+      </section>
+
+      <!-- ── DOWNLOAD ──────────────────────────────────────────────────────── -->
+      <section class="download" id="download">
+        <svg class="dl-mark" aria-hidden="true"><use href="#claudy-mark" /></svg>
+        <h2>Installe Claudy</h2>
+        <p class="muted">macOS · Node ≥ 18 · 100 % local</p>
+        <div class="dl-options">
+          <div class="dl-card">
+            <h3>Le plus simple</h3>
+            <pre><code>curl -fsSL https://raw.githubusercontent.com/Theo59/agent-claudy/main/install.sh | bash</code></pre>
+            <p class="small muted">Récupère le projet, compile les apps macOS, te dit comment lancer.</p>
+          </div>
+          <div class="dl-card">
+            <h3>Glisser-déposer (.dmg)</h3>
+            <a href="#" class="btn btn--primary" data-dmg>▾ Télécharger le .dmg</a>
+            <p class="small muted">Non notarisé → 1er lancement : clic droit sur l'app → « Ouvrir ».</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <svg class="brand-mark" aria-hidden="true"><use href="#claudy-mark" /></svg>
+      <p>
+        agent-claudy — répliques de <strong>Claudy Focan</strong> (<em>Dikkenek</em>, François Damiens).
+        MIT.
+      </p>
+      <p class="muted small">« Y a pas de problème, y a que des solutions. »</p>
+    </footer>
+
+    <script src="claudy.js"></script>
+    <script src="terminal.js"></script>
+  </body>
+</html>

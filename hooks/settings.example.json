@@ -1,0 +1,22 @@
+{
+  "//": "Example to merge into ~/.claude/settings.json (or a project's .claude/settings.json).",
+  "//path": "Replace ABSOLUTE_PATH with the absolute path where you cloned agent-claudy (e.g.: /path/to/agent-claudy).",
+  "//role": "In hybrid mode, the hook handles ONLY the red needs_input alert; working/idle/offline come from the server's auto-discovery.",
+  "hooks": {
+    "Notification": [
+      { "hooks": [{ "type": "command", "command": "node ABSOLUTE_PATH/bin/claudy-hook.js" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node ABSOLUTE_PATH/bin/claudy-hook.js" }] }
+    ],
+    "PreToolUse": [
+      { "hooks": [{ "type": "command", "command": "node ABSOLUTE_PATH/bin/claudy-hook.js" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node ABSOLUTE_PATH/bin/claudy-hook.js" }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "node ABSOLUTE_PATH/bin/claudy-hook.js" }] }
+    ]
+  }
+}
