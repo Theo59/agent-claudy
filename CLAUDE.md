@@ -79,8 +79,9 @@ Ces règles s'appliquent quelle que soit la stack retenue.
 
 ## Workflow Git
 
-- Ce dossier n'est pas encore un dépôt Git. À initialiser au démarrage du projet : `git init`.
-- Branches : travailler sur une branche dédiée, pas directement sur la branche par défaut.
+- **Une nouvelle branche par feature / modification.** Ne jamais empiler plusieurs
+  changements sans rapport sur une même branche, ni travailler directement sur `main` :
+  tirer une branche dédiée (`feat/…`, `fix/…`, `docs/…`) au début de chaque tâche.
 - Commits **atomiques** au format [Conventional Commits](https://www.conventionalcommits.org/) :
   `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`…
 - Ne commiter / pusher que sur demande explicite.
