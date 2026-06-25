@@ -25,7 +25,8 @@
 
   // ── Claudy state per session → snapshot sent to the iframe ──────────────────
   const st = {};
-  for (const s of SESSIONS) st[s.id] = { state: "idle", request: null, children: [], swarm: null };
+  const idle = () => ({ state: "idle", request: null, children: [], swarm: null, mode: null, effort: null, activity: null });
+  for (const s of SESSIONS) st[s.id] = idle();
   let ready = false;
 
   function snapshot() {
@@ -39,6 +40,10 @@
         children: st[s.id].children || [],
         childExtra: 0,
         swarm: st[s.id].swarm || null,
+        // Session info surfaced on the heads (pictos + activity line), like the real app.
+        mode: st[s.id].mode || null,
+        effort: st[s.id].effort || null,
+        activity: st[s.id].activity || null,
       })),
     };
   }
@@ -143,7 +148,7 @@
   async function play() {
     for (const s of SESSIONS) {
       bodies[s.id].textContent = "";
-      st[s.id] = { state: "idle", request: null, children: [], swarm: null };
+      st[s.id] = idle();
     }
     post();
 
@@ -151,12 +156,12 @@
     line("cc-1", "✶ agent-claudy — prêt.", "ln--banner");
     await wait(550);
     await typeLine("cc-1", "> Construis le site vitrine, vite fait.", "ln--prompt", 32);
-    set("cc-1", { state: "working" });
+    set("cc-1", { state: "working", mode: "acceptEdits", effort: "ultracode", activity: { tool: "Workflow", model: "claude-opus-4-8" } });
     await wait(450);
 
     line("cc-2", "$ claude", "ln--dim");
     await typeLine("cc-2", "> Refonte de la home jetsite.", "ln--prompt", 30);
-    set("cc-2", { state: "working" });
+    set("cc-2", { state: "working", mode: "default", effort: "high", activity: { tool: "Edit", model: "claude-sonnet-4-6" } });
     await wait(450);
 
     const s1 = line("cc-1", "⠋ Réflexion…", "ln--dim");
@@ -168,7 +173,7 @@
 
     line("cc-3", "$ claude", "ln--dim");
     await typeLine("cc-3", "> Migration des médias vers Sanity.", "ln--prompt", 28);
-    set("cc-3", { state: "working" });
+    set("cc-3", { state: "working", mode: "acceptEdits", effort: "xhigh", activity: { tool: "Bash", model: "claude-opus-4-8" } });
     await wait(550);
 
     set("cc-1", swarmSet(2));
@@ -187,7 +192,7 @@
     line("cc-1", "✓ code   ✓ blog-researcher", "ln--ok");
     await wait(600);
     line("cc-3", "✓ médias externalisés.", "ln--ok");
-    set("cc-3", { state: "idle" });
+    set("cc-3", { state: "idle", mode: null, effort: null, activity: null });
     await wait(550);
 
     set("cc-1", swarmSet(6));

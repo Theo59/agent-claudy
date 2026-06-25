@@ -48,8 +48,8 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* Brand mark (glasses + moustache logo) reused in the topbar, the empty state, the footer
-   and the settings panel → consistent visual identity. */
+/* Brand mark (glasses + mustache logo) reused in the topbar, empty state, footer
+   and settings panel → consistent visual identity. */
 .brand {
   display: flex;
   align-items: center;
@@ -70,7 +70,7 @@ svg.brand-mark {
   display: block;
 }
 
-/* Discreet icon button (settings cogwheel): replaces the bulky buttons. */
+/* Discreet icon button (settings gear) : replaces the bulky buttons. */
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -90,7 +90,7 @@ svg.brand-mark {
   border-color: var(--accent);
   background: rgba(216, 166, 87, 0.08);
 }
-/* Visual feedback for the refresh button: the icon spins briefly on click. */
+/* Visual feedback on the refresh button : the icon spins briefly on click. */
 .icon-btn.spinning svg {
   animation: spin 0.6s linear;
 }
@@ -100,7 +100,7 @@ svg.brand-mark {
   }
 }
 
-/* Narrow thumbnail (macOS floating window, viewport ~258px): ultra-compact toolbar
+/* Narrow viewport (macOS floating window, viewport ~258px) : ultra-compact toolbar
    on a single line. The (wide) browser keeps the full version. */
 @media (max-width: 360px) {
   .topbar {
@@ -133,7 +133,7 @@ svg.brand-mark {
 .status {
   display: flex;
   align-items: center;
-  flex-wrap: wrap; /* counters wrap to a new line instead of overflowing */
+  flex-wrap: wrap; /* counters wrap to the next line instead of overflowing */
   gap: 8px;
   min-width: 0; /* allows shrinking inside the flex topbar (no overflow) */
   font-size: 13px;
@@ -189,25 +189,25 @@ button.ghost {
 
 .grid {
   display: grid;
-  /* min(--tile, 100%): a column NEVER exceeds the available width → no more
+  /* min(--tile, 100%) : a column NEVER exceeds the available width → no more
      horizontal scroll when shrinking the window (otherwise minmax forces the width). */
   grid-template-columns: repeat(auto-fill, minmax(min(var(--tile, 160px), 100%), 1fr));
-  align-items: start; /* panels at natural height (comic page), top-aligned */
+  align-items: start; /* panels at natural height (comic strip), top-aligned */
   gap: 10px;
   padding: 12px;
   width: 100%;
   margin: 0;
 }
 
-/* Comic panel: NO background, thick cream-colored border (= the bubble color).
+/* Comic panel : NO background, thick cream-colored border (= bubble color).
    The bubble (same cream) sticks to the frame at the top → it blends into the border. */
 .card {
   --frame: #efe6cf;
   /* Status outline color (hugs the silhouette via drop-shadow, cf. .avatar canvas). */
   --ring: var(--card-border);
-  /* Outline that follows the curves of the face: we stack drop-shadows in 8 directions
-     (cardinal + diagonal); each one traces the alpha channel of the cut-out head → a
-     continuous edge hugging hair / cheeks / collar. Recolored by changing --ring per state. */
+  /* Outline that follows the contours of the face : we stack drop-shadows in 8 directions
+     (cardinal + diagonal) ; each traces the alpha channel of the cut-out head → continuous
+     edge hugging hair / cheeks / collar. Recolored by changing --ring per state. */
   --outline:
     drop-shadow(1px 0 0 var(--ring)) drop-shadow(-1px 0 0 var(--ring))
     drop-shadow(0 1px 0 var(--ring)) drop-shadow(0 -1px 0 var(--ring))
@@ -217,16 +217,25 @@ button.ghost {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 0 0 9px; /* no top padding: the bubble touches the top border */
+  gap: 6px;
+  padding: 0 0 6px; /* no top padding : the bubble touches the top border */
   background: transparent;
   border: 3px solid var(--frame);
   border-radius: 15px;
   overflow: hidden; /* the bubble follows the rounded corners of the frame */
   min-width: 0;
-  container-type: inline-size; /* lets the bubble font be sized in cqi */
+  container-type: inline-size; /* lets the bubble font size be expressed in cqi */
+  cursor: grab; /* the card body is draggable to reorder (head = pointer, name = text) */
 }
-/* Idle head (no bubble): a bit of breathing room on top so it doesn't touch the frame. */
+.card:active {
+  cursor: grabbing;
+}
+/* While being dragged : faded + lifted, so the drop target reads clearly. */
+.card.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+/* Head at rest (no bubble) : a bit of room at the top so it doesn't touch the frame. */
 .card:not(:has(.bubble.show)) {
   padding-top: 9px;
 }
@@ -234,11 +243,12 @@ button.ghost {
   --frame: #f3cbc4;
 }
 
-/* Avatar: the cut-out head floats on a transparent background (no more clipped circle);
+/* Avatar : the cut-out head floats on a transparent background (no more clipped circle) ;
    the status is carried by an outline that follows its silhouette (--outline on the canvas). */
 .avatar {
   width: var(--avatar, 64px);
   height: var(--avatar, 64px);
+  position: relative; /* anchor for the corner pictos */
   flex: none;
   background: transparent;
 }
@@ -248,21 +258,21 @@ button.ghost {
   width: 100%;
   height: 100%;
   display: block;
-  filter: var(--outline); /* edge hugging the curves of the face, color = --ring */
+  filter: var(--outline); /* edge hugging the contours of the face, color = --ring */
   transition: filter 0.25s ease;
 }
 
-/* Outline color per state (the "other way" of showing the status). */
+/* Outline color per state (the "other way" to display the status). */
 .card[data-state="working"] {
   --ring: var(--green);
-  --frame: #d3e9c3; /* frame + bubble tinted green while working (counterpart to the needs_input pink) */
+  --frame: #d3e9c3; /* frame + bubble tinted green while working (counterpart to needs_input pink) */
 }
 .card[data-state="working"] .avatar canvas {
   animation: silhouette-pulse 2.4s ease-in-out infinite;
 }
 .card[data-state="idle"] {
   --ring: var(--muted);
-  --frame: #d6d1c6; /* slightly grayed out when doing nothing */
+  --frame: #d6d1c6; /* slightly grayed out when idle */
 }
 .card[data-state="offline"] {
   --ring: #4a4338;
@@ -274,9 +284,9 @@ button.ghost {
 .card[data-state="needs_input"] .avatar canvas {
   animation: silhouette-alert 0.9s ease-in-out infinite;
 }
-/* Pulse/alert: we add a glow (blurred drop-shadow) that also follows the
+/* Pulse/alert : we add a glow (blurred drop-shadow) that also follows the
    silhouette, on top of the crisp edge. Same number of filter functions at both steps
-   (zero-blur glow at rest) for a smooth interpolation. */
+   (glow with zero blur at rest) for smooth interpolation. */
 @keyframes silhouette-pulse {
   0%,
   100% {
@@ -296,7 +306,7 @@ button.ghost {
   }
 }
 
-/* Sub-agent swarm: a row of mini-heads below the name + counter. Empty → invisible. */
+/* Sub-agent swarm : row of mini-heads under the name + counter. Empty → invisible. */
 .children {
   display: flex;
   flex-wrap: wrap;
@@ -310,7 +320,7 @@ button.ghost {
   display: none; /* no mini-head → no reserved space */
 }
 .mini {
-  /* Head status: working (amber, pulse), done (green), failed (red).
+  /* Head status : working (amber, pulse), done (green), failed (red).
      Color carried by --ring (the canvas outline reads it). */
   --ring: var(--amber);
   width: 30px;
@@ -364,13 +374,85 @@ button.ghost {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ink);
-  cursor: text; /* hint: double-click to rename */
+  cursor: text; /* hint : double-click to rename */
 }
 .card .name:hover {
   text-decoration: underline dotted var(--muted);
   text-underline-offset: 2px;
 }
-/* During inline editing: field visible, no more truncation. */
+/* Current activity : latest tool + model, right under the name. Discreet, truncated,
+   hidden when empty (otherwise the card's flex gap would reserve phantom space). */
+/* Corner pictos hugging the head: mode (top-left) + effort (top-right). Absolutely
+   positioned with negative offsets so they sit in the empty corners → ZERO card height.
+   Hidden when empty. Tool/model live on the head's hover title instead. */
+/* Étiquettes-pilules (mode haut-gauche, effort haut-droit) : texte mono — pas d'emoji,
+   on reste dans le design system (crème/rétro). Calées dans les COINS HAUTS de la carte
+   (au-dessus de la tête), contre les bords ; l'offset latéral suit la largeur réelle. */
+.picto {
+  position: absolute;
+  top: -13px; /* dans le creux entre la bulle et la tête → coins hauts */
+  white-space: nowrap; /* la pilule reste sur une ligne, dimensionnée au contenu */
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1.5;
+  padding: 0 5px;
+  color: var(--muted);
+  background: rgba(20, 17, 13, 0.55);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  pointer-events: none; /* never block the click-to-focus on the head */
+  z-index: 3;
+}
+.picto:empty {
+  display: none;
+}
+.picto--tl {
+  left: calc((var(--avatar, 50px) - var(--tile, 100px)) / 2 + 2px);
+}
+.picto--tr {
+  right: calc((var(--avatar, 50px) - var(--tile, 100px)) / 2 + 2px);
+}
+.picto--effort {
+  color: var(--accent);
+  border-color: rgba(216, 166, 87, 0.5);
+}
+/* Ultracode star: violet base + multicolor shimmer (animated hue) + violet glow → unmistakable. */
+/* Ultracode star: solid bright violet, bigger, cycling through the rainbow with a glow
+   that follows the color (currentColor) → unmistakable and actually visible. */
+.picto--ultra {
+  color: #c4b5fd;
+  border-color: #8b5cf6;
+  filter: drop-shadow(0 0 5px currentColor) drop-shadow(0 0 9px rgba(139, 92, 246, 0.5));
+  animation: ultra-rainbow 3s linear infinite;
+}
+@keyframes ultra-rainbow {
+  0%   { color: #8b5cf6; }
+  25%  { color: #ec4899; }
+  50%  { color: #f59e0b; }
+  75%  { color: #22d3ee; }
+  100% { color: #8b5cf6; }
+}
+
+/* Thin activity line under the name: current tool + model. Hidden when empty (idle). */
+.card .activity {
+  margin-top: -2px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--muted);
+}
+.card .activity:empty {
+  display: none;
+}
+
+/* Inline editing: visible field, no truncation. */
 .card .name.editing {
   overflow: visible;
   text-overflow: clip;
@@ -382,44 +464,44 @@ button.ghost {
 }
 
 /* Comic bubble at the top of the panel, full width, tail pointing to the head below.
-   In flow (no overlap); shown via .show (working / needs_input). */
+   In flow (no overlap) ; shown via .show (working / needs_input). */
 .bubble {
   position: relative;
   display: none;
   width: 100%; /* full width, edge to edge with the frame */
-  margin-bottom: 20px; /* room for the comma-shaped tail dropping toward the head */
+  margin-bottom: 15px; /* room for the comma-shaped tail descending toward the head */
   padding: 8px 9px;
   background: var(--frame); /* SAME color as the border → merge */
   color: #15100a;
   border: 0;
   border-radius: 0 0 13px 13px; /* flat top (blends into the frame), rounded bottom */
-  /* Font proportional to the panel width (container query) with bounds:
-     stays readable on a big tile, no longer overflows when density shrinks the panel. */
+  /* Font size proportional to the panel width (container query) with bounds :
+     stays readable on a large tile, no longer overflows when density shrinks the panel. */
   font-size: clamp(8px, 6.2cqi, 12px);
   font-weight: 600;
   line-height: 1.3;
   text-align: center;
-  /* NO overflow:hidden here: otherwise the tail (::after, below the bubble) gets clipped.
+  /* NO overflow:hidden here : otherwise the tail (::after, below the bubble) gets clipped.
      Truncation lives on .bubble-text. */
 }
 .bubble.show {
   display: block;
 }
-/* Ticker: the text lives on a SINGLE line. If it fits the width → static centered
-   (no movement, visual calm); otherwise → scrolling (marquee). .bubble-text = the viewport
-   that clips horizontally. overflow:hidden is OK HERE: the tail (::after) is carried by
+/* Ticker : the text lives on ONE single line. If it fits the width → static centered
+   (no motion, visual calm) ; otherwise → scrolling (marquee). .bubble-text = viewport
+   that clips horizontally. overflow:hidden OK HERE : the tail (::after) is carried by
    .bubble, not by this inner viewport, so it isn't clipped. */
 .bubble-text {
   overflow: hidden;
   white-space: nowrap;
 }
 .bubble:not(.is-marquee) .bubble-text {
-  text-align: center; /* fits on one line → centered and static */
+  text-align: center; /* fits on one line → centered and still */
 }
 .bubble.is-marquee .bubble-text {
   text-align: left;
 }
-/* Animated track: 1 copy (static) or 2 identical copies (seamless loop). */
+/* Animated track : 1 copy (static) or 2 identical copies (seamless loop). */
 .bubble-track {
   display: inline-block;
   white-space: nowrap;
@@ -446,12 +528,12 @@ button.ghost {
     transform: translateX(0);
   }
   to {
-    /* 2 equal copies → -50% = exactly one copy + gap: the loop point is invisible */
+    /* 2 equal copies → -50% = exactly one copy + gap : the wrap-around is invisible */
     transform: translateX(-50%);
   }
 }
-/* Accessibility: no scrolling if the user reduces motion.
-   READABLE fallback: the text goes back into flow and wraps over a few lines (never cut off). */
+/* Accessibility : no scrolling if the user reduces animations.
+   READABLE fallback : the text returns to flow and wraps over a few lines (never cut off). */
 @media (prefers-reduced-motion: reduce) {
   .bubble-track {
     animation: none;
@@ -471,15 +553,15 @@ button.ghost {
   .bubble-seg {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3; /* fallback: 3 lines max then … (full text in the tooltip) */
+    -webkit-line-clamp: 3; /* fallback : 3 lines max then … (full text in tooltip) */
     white-space: normal;
     overflow: hidden;
     overflow-wrap: break-word;
     hyphens: auto;
   }
 }
-/* Comic-style tail: a curved "brushstroke" comma that tapers and drops toward
-   Claudy's mouth. Shape = SVG mask; the color comes from var(--frame) (so
+/* Comic-style tail : curved "brushstroke" comma that tapers and descends toward
+   Claudy's mouth. Shape = SVG mask ; the color comes from var(--frame) (so
    cream → pink in needs_input, like the bubble/border) → the tail "comes out" of the frame. */
 .bubble::after {
   content: "";
@@ -500,7 +582,7 @@ button.ghost {
   align-items: center;
   gap: 9px;
 }
-/* Stacked indicator: icon on top, number below → narrow mini-column. */
+/* Stacked indicator : icon on top, number below → narrow mini-column. */
 .stat {
   display: inline-flex;
   flex-direction: column;
@@ -550,7 +632,7 @@ button.ghost {
   font-size: 13px;
 }
 
-/* Reserved for screen readers: off-screen but readable by assistive technologies. */
+/* Screen-reader only : off-screen but readable by assistive technologies. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -583,11 +665,11 @@ button.ghost {
 }
 
 /* ── Settings panel (⚙) ──────────────────────────────────────────────────
-   Native modal <dialog>: centered, dimmed background via ::backdrop. Vanilla, no dependency. */
+   native modal <dialog> : centered, darkened background via ::backdrop. Vanilla, no dependency. */
 .settings {
   width: min(560px, 92vw);
   max-height: 86vh;
-  /* Flex column: the title bar and footer stay fixed, the body scrolls. */
+  /* Flex column : the title bar and footer stay fixed, the body scrolls. */
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -598,7 +680,7 @@ button.ghost {
   box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6);
   overflow: hidden;
 }
-/* Small frame (floating window, reduced screen): the panel takes up the whole space and
+/* Small frame (floating window, reduced screen) : the panel takes all the space and
    scrolls, so that ALL the settings stay reachable. */
 @media (max-width: 460px), (max-height: 560px) {
   .settings {
@@ -637,7 +719,7 @@ button.ghost {
   padding: 6px 16px 12px;
   overflow-y: auto;
   flex: 1 1 auto;
-  min-height: 0; /* essential for a flex child to be able to scroll */
+  min-height: 0; /* essential so a flex child can scroll */
 }
 .set-section {
   padding: 12px 0;
@@ -654,7 +736,7 @@ button.ghost {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap; /* on a narrow frame: the control drops below the label instead of overflowing */
+  flex-wrap: wrap; /* on a narrow frame : the control moves below the label instead of overflowing */
   gap: 8px 12px;
   padding: 7px 0;
 }
@@ -705,7 +787,7 @@ button.ghost {
 .set-input:disabled {
   opacity: 0.5;
 }
-/* Toggle switch (styled checkbox). */
+/* Switch (styled checkbox). */
 .set-toggle {
   appearance: none;
   -webkit-appearance: none;
@@ -781,4 +863,30 @@ button.ghost {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 60%;
+}
+
+
+/* ── Visibilité configurable des éléments (config serveur → SSE → classes sur .grid) ── */
+/* Pas de hauteur fixe : la carte grandit avec son contenu → l'essaim de mini-Claudy
+   (workflows dynamiques) s'affiche EN ENTIER (l'effet wahou). Grille align-items:start. */
+.grid.hide-bubble .bubble { display: none; }
+.grid.hide-bubble .card { padding-top: 9px; }
+.grid.hide-badges .picto { display: none; }
+.grid.hide-activity .activity { display: none; }
+.grid.hide-swarm .children { display: none; }
+
+
+/* Ultracode also haloes the HEAD: append violet drop-shadows to the silhouette outline
+   (keeps the green/red state color; same filter-function count as the pulse keyframes →
+   smooth interpolation). data-ultra is set by app.js when effort === "ultracode". */
+.card[data-ultra] {
+  --outline:
+    drop-shadow(1px 0 0 var(--ring)) drop-shadow(-1px 0 0 var(--ring))
+    drop-shadow(0 1px 0 var(--ring)) drop-shadow(0 -1px 0 var(--ring))
+    drop-shadow(0.7px 0.7px 0 var(--ring)) drop-shadow(-0.7px 0.7px 0 var(--ring))
+    drop-shadow(0.7px -0.7px 0 var(--ring)) drop-shadow(-0.7px -0.7px 0 var(--ring))
+    drop-shadow(0 0 4px #8b5cf6) drop-shadow(0 0 8px rgba(139, 92, 246, 0.5));
+}
+@media (prefers-reduced-motion: reduce) {
+  .picto--ultra { animation: none; }
 }
