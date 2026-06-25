@@ -20,6 +20,18 @@
   for (const s of SESSIONS) bodies[s.id] = document.getElementById("term-" + s.id);
   if (!Object.values(bodies).every(Boolean)) return;
 
+  // Pause the embedded UI's animation loop while the diptych is off-screen: app.js
+  // stops its requestAnimationFrame on {type:"claudy-render", active:false} → no
+  // wasted canvas repaints, smoother scrolling once you pass the hero.
+  function setRender(active) {
+    if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage({ type: "claudy-render", active }, "*");
+  }
+  if (iframe && "IntersectionObserver" in window) {
+    new IntersectionObserver((entries) => {
+      for (const e of entries) setRender(e.isIntersecting);
+    }).observe(iframe);
+  }
+
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const wait = (ms) => new Promise((r) => setTimeout(r, reduce ? Math.min(ms, 120) : ms));
 

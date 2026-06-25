@@ -48,6 +48,10 @@
   // Préférences d'affichage (config serveur, via SSE) : lues par setActivity.
   let display = {};
 
+  // Le hochement de tête est désormais une transform CSS (composité GPU, voir
+  // styles.css), et le canvas n'est redessiné qu'au CHANGEMENT d'état : plus aucune
+  // boucle requestAnimationFrame ni redraw permanent → scroll fluide même en iframe.
+
   // ── Manual session renaming (persisted locally via localStorage) ──────────────
   // A nickname takes precedence over the discovered/server name, for the given id.
   function customName(id) {
@@ -182,7 +186,7 @@
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   // Re-measures the ticker when the bubble changes SIZE (density, resize, creation).
-  // Outside the rAF loop to avoid layout reads on every frame.
+  // Done on change (ResizeObserver), never by polling → no repeated layout reads.
   const bubbleRO =
     "ResizeObserver" in window
       ? new ResizeObserver((entries) => {
@@ -204,7 +208,7 @@
 
   // "Scroll only if needed" toggle: if the line fits on one line → static centered
   // (no movement); otherwise → marquee at constant speed. Called on text change AND
-  // by the ResizeObserver (width change). Reads layout → outside the rAF loop.
+  // by the ResizeObserver (width change). Reads layout → only on change, never per frame.
   function measureBubble(card) {
     const bubble = card.bubbleEl;
     if (!bubble.classList.contains("show")) return;
@@ -324,6 +328,8 @@
     const canvas = document.createElement("canvas");
     canvas.width = Claudy.GRID_W * PX;
     canvas.height = Claudy.GRID_H * PX;
+    // Negative delay desyncs the CSS nod so heads don't bob in unison.
+    canvas.style.animationDelay = `-${(Math.random() * 2.4).toFixed(2)}s`;
     avatar.appendChild(canvas);
     // Click on the head: brings the agent's window (VS Code / terminal) to the foreground.
     avatar.style.cursor = "pointer";
@@ -408,8 +414,7 @@
       activityEl: activity,
       childrenEl: children,
       childCountEl: childCount,
-      childCards: new Map(), // childId -> { el, ctx, phase }
-      phase: Math.random() * Math.PI * 2,
+      childCards: new Map(), // childId -> { el, ctx, status }
       renderedState: null,
       quoteIdx: Math.floor(Math.random() * QUOTES.length),
     };
@@ -437,14 +442,19 @@
         const canvas = document.createElement("canvas");
         canvas.width = Claudy.GRID_W * MINI_PX;
         canvas.height = Claudy.GRID_H * MINI_PX;
+        canvas.style.animationDelay = `-${(Math.random() * 1.6).toFixed(2)}s`; // desync the nod
         mini.appendChild(canvas);
         // Insert before the counter (which stays last, full width).
         card.childrenEl.insertBefore(mini, card.childCountEl);
-        child = { el: mini, ctx: canvas.getContext("2d"), phase: Math.random() * Math.PI * 2 };
+        child = { el: mini, ctx: canvas.getContext("2d") };
         card.childCards.set(sub.id, child);
       }
-      child.status = status; // read by the animation loop (nods if "working")
-      child.el.dataset.status = status; // outline color via CSS
+      // Repaint only when the status changes (no per-frame loop). The nod is CSS.
+      if (child.status !== status) {
+        paintChild(child.ctx, status);
+      }
+      child.status = status;
+      child.el.dataset.status = status; // outline color (and nod animation) via CSS
       child.el.title = `${sub.name} — ${STATUS_LABEL[status] || status}`;
       child.el.setAttribute("aria-label", `sous-agent ${sub.name} : ${STATUS_LABEL[status] || status}`);
     }
@@ -470,6 +480,7 @@
     card.el.setAttribute("aria-label", `${effectiveName(agent.id)} — ${LABELS[agent.state] || agent.state}`);
 
     if (agent.state !== card.renderedState) {
+      paintHead(card.ctx, PX, agent.state, agent.effort === "ultracode"); // redraw for the new state
       // Bubble ALWAYS shown → the tile height doesn't change from one state to another.
       card.bubbleEl.classList.add("show");
       if (agent.state === "working") {
@@ -586,43 +597,43 @@
     updateSummary(list);
   }
 
-  // ── Animation loop ──────────────────────────────────────────────────────────
+  // ── Head painting (on state change only — the nod is CSS) ────────────────────
 
-  function frame(t) {
-    for (const [id, card] of cards) {
-      const agent = agents.get(id);
-      if (!agent) continue;
+  // Outline colors, baked into the canvas by Claudy.draw (no CSS filter anymore).
+  // Kept in sync with the --green/--red/--muted CSS vars and the ultracode violet.
+  const RING = { working: "#6fae5a", needs_input: "#d65a4a", idle: "#a8967c", offline: "#4a4338" };
+  const MINI_RING = { working: "#e0a93b", done: "#6fae5a", failed: "#d65a4a" };
+  const ULTRA_RING = "#8b5cf6";
 
-      let bob = 0;
-      let dim = false;
-      let tint = null;
+  // Map a state to its visual: idle/offline dimmed, needs_input tinted red,
+  // outline color per state (violet when ultracode).
+  function paintHead(ctx, px, state, ultra) {
+    Claudy.draw(ctx, {
+      px,
+      dim: state === "idle" || state === "offline",
+      tint: state === "needs_input" ? "#d65a4a" : null,
+      ring: ultra ? ULTRA_RING : RING[state] || RING.idle,
+    });
+  }
 
-      if (agent.state === "working") {
-        bob = Math.sin(t * 0.013 + card.phase) * 6; // nod: "he's talking"
-        // The line is set on the state change (syncCard), not here: it stays FIXED
-        // and scrolls via CSS. The loop now only does the nodding.
-      } else if (agent.state === "needs_input") {
-        bob = Math.sin(t * 0.006 + card.phase) * 3; // soliciting
-        tint = "#d65a4a";
-      } else if (agent.state === "idle") {
-        dim = true;
-        bob = Math.sin(t * 0.0025 + card.phase) * 1.5; // gentle breathing
-      } else {
-        dim = true; // offline
-      }
+  function paintChild(ctx, status) {
+    Claudy.draw(ctx, { px: MINI_PX, dim: status === "failed", ring: MINI_RING[status] || MINI_RING.working });
+  }
 
-      Claudy.draw(card.ctx, { px: PX, bob, dim, tint });
-
-      // Sub-agent mini-heads: always active → nodding, out of phase with each other.
+  // Repaint every head + mini-head with its current state (used when the face
+  // image finishes loading, since there's no longer a loop to catch up).
+  function repaintAll() {
+    for (const card of cards.values()) {
+      paintHead(card.ctx, PX, card.el.dataset.state, card.el.hasAttribute("data-ultra"));
       for (const child of card.childCards.values()) {
-        // Only "working" heads nod; done/failed ones stay fixed
-        // (dimmed if failed) to clearly read the frozen state of the run.
-        const working = child.status === "working" || child.status === undefined;
-        const bob = working ? Math.sin(t * 0.013 + child.phase) * 3 : 0;
-        Claudy.draw(child.ctx, { px: MINI_PX, bob, dim: child.status === "failed" });
+        paintChild(child.ctx, child.status);
       }
     }
-    requestAnimationFrame(frame);
+  }
+
+  // Pause the CSS nod animations (off-screen / hidden tab): animation-play-state.
+  function setAnimPaused(paused) {
+    els.grid.classList.toggle("anim-paused", paused);
   }
 
   // ── SSE connection ──────────────────────────────────────────────────────────
@@ -681,7 +692,15 @@
     if (els.refresh) els.refresh.addEventListener("click", refreshNow);
     setupDnd();
     connect();
-    requestAnimationFrame(frame);
+    // Repaint heads once the face image is ready (no loop to catch up anymore).
+    Claudy.onReady(repaintAll);
+    // Pause the CSS nods when the tab is hidden or an embedding host asks (the
+    // landing posts {type:"claudy-render", active} via IntersectionObserver).
+    document.addEventListener("visibilitychange", () => setAnimPaused(document.hidden));
+    window.addEventListener("message", (e) => {
+      const d = e.data;
+      if (d && d.type === "claudy-render") setAnimPaused(!d.active);
+    });
   }
 
   init();
