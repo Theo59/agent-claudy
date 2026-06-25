@@ -200,7 +200,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         menu.addItem(.separator())
 
         if !connected {
-            addAction(menu, "Démarrer le serveur", #selector(startServerAction), key: "")
+            addAction(menu, "Démarrer le serveur", #selector(startServerAction))
         } else if agents.isEmpty {
             let empty = NSMenuItem(title: "Aucun agent actif", action: nil, keyEquivalent: "")
             empty.isEnabled = false
@@ -216,9 +216,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         }
 
         menu.addItem(.separator())
-        addAction(menu, "Ouvrir le panneau", #selector(openPanel), key: "o")
-        addAction(menu, "Fenêtre flottante", #selector(openFloat), key: "f")
-        addAction(menu, "Réglages…", #selector(openSettings), key: ",")
+        // No key equivalents: a status-item menu is not a regular app menu, so a shown
+        // shortcut (⌘O…) would only fire while the menu is already open — misleading. The
+        // items are click-only.
+        addAction(menu, "Ouvrir le panneau", #selector(openPanel))
+        addAction(menu, "Fenêtre flottante", #selector(openFloat))
+        addAction(menu, "Réglages…", #selector(openSettings))
         menu.addItem(.separator())
         // Start at login (launchd): the checkmark reflects whether the LaunchAgent is present.
         let login = NSMenuItem(title: "Démarrer au login", action: #selector(toggleLogin), keyEquivalent: "")
@@ -227,11 +230,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         menu.addItem(login)
         menu.addItem(.separator())
         // target nil → the action bubbles up to NSApp (which knows how to respond to terminate:).
-        menu.addItem(NSMenuItem(title: "Quitter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quitter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
     }
 
-    func addAction(_ menu: NSMenu, _ title: String, _ sel: Selector, key: String) {
-        let item = NSMenuItem(title: title, action: sel, keyEquivalent: key)
+    func addAction(_ menu: NSMenu, _ title: String, _ sel: Selector) {
+        let item = NSMenuItem(title: title, action: sel, keyEquivalent: "")
         item.target = self
         menu.addItem(item)
     }
