@@ -48,6 +48,13 @@
   // Préférences d'affichage (config serveur, via SSE) : lues par setActivity.
   let display = {};
 
+  // Boucle d'animation : mise en pause quand l'onglet est caché (Page Visibility)
+  // ou quand l'hôte qui embarque l'UI le demande (postMessage {type:"claudy-render"}).
+  // Évite de redessiner les canvases pour rien (économie CPU/GPU, scroll plus fluide
+  // quand l'UI est hors écran dans une iframe). rafRunning = anti double-boucle.
+  let rafRunning = false;
+  let hostPaused = false;
+
   // ── Manual session renaming (persisted locally via localStorage) ──────────────
   // A nickname takes precedence over the discovered/server name, for the given id.
   function customName(id) {
@@ -622,7 +629,20 @@
         Claudy.draw(child.ctx, { px: MINI_PX, bob, dim: child.status === "failed" });
       }
     }
+    // Stop the loop when hidden/paused (resumed by kick()); avoids burning frames.
+    if (document.hidden || hostPaused) {
+      rafRunning = false;
+      return;
+    }
     requestAnimationFrame(frame);
+  }
+
+  // (Re)start the animation loop if it should run and isn't already.
+  function kick() {
+    if (!rafRunning && !document.hidden && !hostPaused) {
+      rafRunning = true;
+      requestAnimationFrame(frame);
+    }
   }
 
   // ── SSE connection ──────────────────────────────────────────────────────────
@@ -681,7 +701,16 @@
     if (els.refresh) els.refresh.addEventListener("click", refreshNow);
     setupDnd();
     connect();
-    requestAnimationFrame(frame);
+    // Resume on tab focus; let an embedding host pause/resume rendering off-screen.
+    document.addEventListener("visibilitychange", kick);
+    window.addEventListener("message", (e) => {
+      const d = e.data;
+      if (d && d.type === "claudy-render") {
+        hostPaused = !d.active;
+        kick();
+      }
+    });
+    kick();
   }
 
   init();
