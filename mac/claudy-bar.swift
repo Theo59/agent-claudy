@@ -322,8 +322,22 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
 
     // Opens the floating window (separate app, always on top of the screen).
     @objc func openFloat() {
-        let appPath = "\(projectRoot())/mac/agent-claudy-float.app"
-        NSWorkspace.shared.open(URL(fileURLWithPath: appPath))
+        // Make sure the server is up (the float window loads the UI over HTTP).
+        if !connected { startServerAction() }
+
+        let fm = FileManager.default
+        let bundleDir = (Bundle.main.bundlePath as NSString).deletingLastPathComponent // …/Applications
+        let candidates = [
+            "\(projectRoot())/mac/agent-claudy-float.app",                          // embedded (DMG) or repo (dev/curl)
+            (bundleDir as NSString).appendingPathComponent("agent-claudy-float.app"), // sibling (both apps in /Applications)
+            "/Applications/agent-claudy-float.app",
+        ]
+        if let path = candidates.first(where: { fm.fileExists(atPath: $0) }) {
+            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+        } else {
+            notifyError("Fenêtre flottante introuvable",
+                        "Réinstalle agent-claudy depuis le DMG (l'app flottante y est incluse).")
+        }
     }
 }
 

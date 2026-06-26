@@ -81,7 +81,13 @@ if [ "${CLAUDY_EMBED:-0}" = "1" ]; then
   # which resolve PROJECT_DIR as their own parent → Resources (the embedded runtime).
   mkdir -p "$RES/mac"
   cp "$ROOT/mac/install-login.sh" "$ROOT/mac/uninstall-login.sh" "$RES/mac/"
-  echo "  ✓ runtime Node + scripts login embarqués (app autonome)"
+  # Embed the floating-window app so the menubar's "Fenêtre flottante" works from the DMG
+  # (openFloat() looks for <root>/mac/agent-claudy-float.app). Signed with the bundle below.
+  if [ -n "${CLAUDY_FLOAT_APP:-}" ] && [ -d "$CLAUDY_FLOAT_APP" ]; then
+    rm -rf "$RES/mac/agent-claudy-float.app"
+    cp -R "$CLAUDY_FLOAT_APP" "$RES/mac/agent-claudy-float.app"
+  fi
+  echo "  ✓ runtime Node + scripts login + fenêtre flottante embarqués (app autonome)"
 fi
 
 # Ad-hoc signature: without it, UNUserNotificationCenter.requestAuthorization fails
