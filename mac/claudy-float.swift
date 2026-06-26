@@ -32,7 +32,7 @@ final class DragStrip: NSView {
 // Global reference so the hotkey's C callback (which captures nothing) can reach the app.
 var floatController: AppController?
 
-final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate {
     var window: NSWindow!
     var web: WKWebView!
 
@@ -63,6 +63,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         let cfg = WKWebViewConfiguration()
         web = WKWebView(frame: .zero, configuration: cfg)
+        web.navigationDelegate = self // retry if the server isn't up yet
         web.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(web)
 
@@ -102,6 +103,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         NSApp.terminate(nil)
         return true
+    }
+
+    // The server may still be starting (launched by the menubar just before us):
+    // retry the load on failure instead of showing a dead "can't connect" page.
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        retryLoad()
+    }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        retryLoad()
+    }
+    private func retryLoad() {
+        guard let u = URL(string: urlString) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.web.load(URLRequest(url: u))
+        }
     }
 }
 

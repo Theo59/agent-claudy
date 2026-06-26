@@ -21,8 +21,9 @@ fi
 # Rebuild systématique. L'app menubar embarque le runtime Node (CLAUDY_EMBED=1) pour être
 # AUTONOME une fois glissée dans /Applications ; la fenêtre flottante n'ouvre qu'une WebView
 # vers le serveur (pas besoin d'embarquer).
-CLAUDY_EMBED=1 bash "$DIR/build-bar.sh"
+# Build the float window FIRST so the menubar app can embed it (relocatable launch).
 bash "$DIR/build-float.sh"
+CLAUDY_EMBED=1 CLAUDY_FLOAT_APP="$FLOAT" bash "$DIR/build-bar.sh"
 
 # Dossier de montage temporaire (les 2 apps + lien Applications).
 STAGE="$(mktemp -d)"
