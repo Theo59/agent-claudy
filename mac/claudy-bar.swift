@@ -76,6 +76,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     var timer: Timer?
     var agents: [Agent] = []
     var connected = false
+    var serverProcess: Process? // the node server WE spawned (so we can stop it on quit)
     var prevStates: [String: String] = [:] // previous state per agent (transition detection)
     var seeded = false // 1st scan: record without notifying (no alert for what already exists)
 
@@ -128,6 +129,18 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         content.body = "L'icône lunettes est dans la barre de menus (en haut à droite). Clique-la pour la fenêtre flottante, le panneau ou les réglages."
         let req = UNNotificationRequest(identifier: "claudy-welcome", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(req)
+    }
+
+    // Quitting the menubar app cleans up what it launched: the floating-window app,
+    // and the server — but only the server WE spawned (a login-agent server is left alone).
+    func applicationWillTerminate(_ note: Notification) {
+        for app in NSWorkspace.shared.runningApplications
+        where app.bundleIdentifier == "com.claudy.agent-claudy.float" {
+            app.terminate()
+        }
+        if let p = serverProcess, p.isRunning {
+            p.terminate()
+        }
     }
 
     // ── Reading from the server ───────────────────────────────────────────
@@ -329,6 +342,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
             notifyError("Démarrage du serveur impossible", error.localizedDescription)
             return
         }
+        serverProcess = p // kept so we can stop it on quit (only the one WE spawned)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) { [weak self] in self?.refresh() }
     }
 
