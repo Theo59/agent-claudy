@@ -31,11 +31,12 @@ body {
 .topbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--card-border);
-  /* Opaque sticky bar (no backdrop-filter blur: it re-rasterizes on every scroll). */
+  padding: 6px 12px;
+  /* Thin opaque sticky bar (no backdrop-filter blur) with a subtle gold underline
+     (retro/BD identity) instead of the inert dark line. */
+  border-bottom: 1px solid rgba(216, 166, 87, 0.3);
   background: var(--bg-2);
   position: sticky;
   top: 0;
@@ -43,7 +44,7 @@ body {
 }
 
 .topbar h1 {
-  font-size: 16px;
+  font-size: 14px;
   margin: 0;
   letter-spacing: 0.5px;
 }
@@ -56,8 +57,8 @@ body {
   gap: 10px;
 }
 .brand-mark {
-  width: 32px;
-  height: 21px;
+  width: 28px;
+  height: 19px;
   flex: none;
   color: var(--accent);
 }
@@ -75,10 +76,10 @@ svg.brand-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  border-radius: 9px;
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
   border: 1px solid var(--card-border);
@@ -136,7 +137,7 @@ svg.brand-mark {
   flex-wrap: wrap; /* counters wrap to the next line instead of overflowing */
   gap: 8px;
   min-width: 0; /* allows shrinking inside the flex topbar (no overflow) */
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -680,12 +681,23 @@ button.ghost {
    scrolls, so that ALL the settings stay reachable. */
 @media (max-width: 460px), (max-height: 560px) {
   .settings {
-    width: 100vw;
-    max-width: 100vw;
+    /* 100% (not 100vw): 100vw includes the scrollbar width → horizontal overflow. */
+    width: 100%;
+    max-width: 100%;
     height: 100dvh;
     max-height: 100dvh;
     border-radius: 0;
     border: 0;
+  }
+  /* Stack each setting (label over control) so nothing overflows a narrow frame. */
+  .set-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  /* Smaller donation QR so it fits with the wallet + dialog padding. */
+  .don-w-qr svg {
+    width: 120px;
+    height: 120px;
   }
 }
 .settings::backdrop {
