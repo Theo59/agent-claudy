@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# build-dmg.sh — assemble un .dmg macOS contenant les deux apps (menubar + fenêtre
-# flottante) et un raccourci /Applications, pour un glisser-déposer classique.
+# build-dmg.sh — assemble un .dmg macOS contenant l'app agent-claudy (menubar, avec la
+# fenêtre flottante embarquée) et un raccourci /Applications, pour un glisser-déposer.
 #
 # Produit : mac/agent-claudy.dmg
 # Nécessite : swiftc (pour (re)builder les apps) + hdiutil (natif macOS).
@@ -25,11 +25,12 @@ fi
 bash "$DIR/build-float.sh"
 CLAUDY_EMBED=1 CLAUDY_FLOAT_APP="$FLOAT" bash "$DIR/build-bar.sh"
 
-# Dossier de montage temporaire (les 2 apps + lien Applications).
+# Dossier de montage temporaire : UNE SEULE app + lien Applications.
+# La fenêtre flottante est embarquée dans agent-claudy.app (lancée depuis le menu),
+# donc inutile de l'exposer en 2e icône — un seul glisser-déposer pour l'utilisateur.
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 cp -R "$BAR" "$STAGE/"
-cp -R "$FLOAT" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 
 echo "Création de $DMG …"
