@@ -9,7 +9,7 @@
       "network": "Réseau Bitcoin",
       "accepts": ["BTC"],
       "uriScheme": "bitcoin",
-      "address": "REMPLACER_PAR_TON_ADRESSE_BTC"
+      "address": "bc1qju0dqj8g7yzx4hedw65yszc8dqxmu4xnmxpgzj"
     },
     {
       "id": "evm",
@@ -17,7 +17,7 @@
       "network": "Ethereum & réseaux EVM",
       "accepts": ["ETH", "USDC (ERC-20)", "USDT (ERC-20)"],
       "uriScheme": "ethereum",
-      "address": "REMPLACER_PAR_TON_ADRESSE_EVM"
+      "address": "0xfaB207eC4E16533401EA14cA1ac5Ed33664dC4A5"
     },
     {
       "id": "sol",
@@ -25,7 +25,7 @@
       "network": "Réseau Solana",
       "accepts": ["SOL", "USDC (SPL)", "USDT (SPL)"],
       "uriScheme": "solana",
-      "address": "REMPLACER_PAR_TON_ADRESSE_SOL"
+      "address": "H1Viz1tBoAFjZ1yE6M4cZx8vbiEV2h2mUf3ZTixg2x6p"
     }
   ]
 }
