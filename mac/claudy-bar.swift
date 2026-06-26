@@ -143,19 +143,29 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
             w.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return
         }
         let logo = NSImageView()
-        if let p = Bundle.main.path(forResource: "claudy", ofType: "icns") {
+        // Transparent logo (the pixel Claudy head) → no white box behind it. Falls back
+        // to the app icon only if face.png isn't bundled.
+        if let p = Bundle.main.path(forResource: "face", ofType: "png"), let img = NSImage(contentsOfFile: p) {
+            logo.image = img
+        } else if let p = Bundle.main.path(forResource: "claudy", ofType: "icns") {
             logo.image = NSImage(contentsOfFile: p)
         }
         logo.imageScaling = .scaleProportionallyUpOrDown
         logo.translatesAutoresizingMaskIntoConstraints = false
-        logo.widthAnchor.constraint(equalToConstant: 84).isActive = true
-        logo.heightAnchor.constraint(equalToConstant: 84).isActive = true
+        logo.widthAnchor.constraint(equalToConstant: 96).isActive = true
+        logo.heightAnchor.constraint(equalToConstant: 96).isActive = true
 
-        let title = wLabel("Bienvenue dans agent-claudy", size: 20, weight: .bold)
+        let title = wLabel("Bienvenue dans agent-claudy", size: 21, weight: .bold)
         let desc = wLabel("Tes sessions Claude Code, en têtes de Claudy Focan — qui parlent, bossent et te réclament quand elles ont besoin de toi.",
                           size: 13, color: .secondaryLabelColor, width: 380)
-        let bullets = wLabel("👓   L'app vit dans la barre de menus (en haut à droite).\n🪟   Fenêtre flottante toujours au‑dessus — raccourci ⌃⌥C.\n🖱️   Clique une tête → sa fenêtre revient au premier plan.\n🔔   Notification quand un agent te réclame.",
-                             size: 13, align: .left, width: 380)
+
+        // Bullets with extra line spacing so the block breathes.
+        let bullets = wLabel("", size: 13, align: .left, width: 380)
+        let para = NSMutableParagraphStyle()
+        para.lineSpacing = 7
+        bullets.attributedStringValue = NSAttributedString(
+            string: "👓   L'app vit dans la barre de menus (en haut à droite).\n🪟   Fenêtre flottante toujours au‑dessus — raccourci ⌃⌥C.\n🖱️   Clique une tête → sa fenêtre revient au premier plan.\n🔔   Notification quand un agent te réclame.",
+            attributes: [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor.labelColor, .paragraphStyle: para])
 
         let donate = NSButton(title: "Soutenir le projet 🙏", target: self, action: #selector(welcomeDonate))
         donate.bezelStyle = .rounded
@@ -164,13 +174,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         go.keyEquivalent = "\r" // default button (Return)
         let buttons = NSStackView(views: [donate, go])
         buttons.orientation = .horizontal
-        buttons.spacing = 12
+        buttons.spacing = 14
 
         let stack = NSStackView(views: [logo, title, desc, bullets, buttons])
         stack.orientation = .vertical
         stack.alignment = .centerX
-        stack.spacing = 14
-        stack.edgeInsets = NSEdgeInsets(top: 26, left: 30, bottom: 24, right: 30)
+        stack.spacing = 16
+        stack.setCustomSpacing(22, after: logo)   // air under the logo
+        stack.setCustomSpacing(10, after: title)  // title hugs its description
+        stack.setCustomSpacing(24, after: desc)   // clear gap before the bullets
+        stack.setCustomSpacing(28, after: bullets) // and before the buttons
+        stack.edgeInsets = NSEdgeInsets(top: 34, left: 40, bottom: 30, right: 40)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         let content = NSView()

@@ -47,6 +47,9 @@ if [ -f "$ICON_SVG" ] && command -v qlmanage >/dev/null 2>&1 && command -v iconu
 fi
 $HAS_ICON && echo "  ✓ icône intégrée (logo aviateur)" || echo "  (icône non générée — l'app reste fonctionnelle)"
 
+# Transparent logo (pixel Claudy head) for the welcome window — no white box behind it.
+cp "$ROOT/public/face.png" "$APP/Contents/Resources/face.png" 2>/dev/null || true
+
 cat > "$APP/Contents/Info.plist" <<PLIST_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
