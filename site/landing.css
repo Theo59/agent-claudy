@@ -35,7 +35,11 @@ a { color: var(--accent); text-decoration: none; }
 
 /* ── Brand ──────────────────────────────────────────────────────────────── */
 .brand-mark { width: 28px; height: 18px; color: var(--accent); flex: none; }
-.brand-mark svg, svg.brand-mark { display: block; width: 100%; height: 100%; }
+/* The mark IS the <svg> here: size it via .brand-mark, NOT 100% (which, being more
+   specific than .brand-mark, blew the logo up to its parent's full width). The
+   descendant rule only covers the wrapper case. */
+.brand-mark svg { display: block; width: 100%; height: 100%; }
+svg.brand-mark { display: block; }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 .btn {
