@@ -137,7 +137,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     }
 
     // A small welcome popup (logo + what-to-do + a "support the project" button).
-    func showWelcomeWindow() {
+    // @objc so the "Revoir la bienvenue" menu item can call it.
+    @objc func showWelcomeWindow() {
         if let w = welcomeWindow {
             w.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return
         }
@@ -354,6 +355,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         addAction(menu, "Ouvrir le panneau", #selector(openPanel))
         addAction(menu, "Fenêtre flottante", #selector(openFloat))
         addAction(menu, "Réglages…", #selector(openSettings))
+        addAction(menu, "Revoir la bienvenue", #selector(showWelcomeWindow))
         menu.addItem(.separator())
         // Start at login (launchd): the checkmark reflects whether the LaunchAgent is present.
         let login = NSMenuItem(title: "Démarrer au login", action: #selector(toggleLogin), keyEquivalent: "")
