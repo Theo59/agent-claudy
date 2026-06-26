@@ -104,31 +104,108 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
     }
 
     // First-launch onboarding so the user isn't left with a bare menu-bar icon:
-    // auto-start the server (the app is useless without it), and on the VERY first run
-    // open the floating window + a welcome notification pointing to the menu-bar icon.
+    // always auto-start the server (the app is useless without it), and on the VERY first
+    // run show a welcome window explaining where the app lives + offering to support it.
     func bootstrap() {
         // Wait ~1.8 s so the initial /api/agents probe has set `connected` → we don't
         // spawn a second server if one is already running (npm start, login agent…).
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { [weak self] in
             guard let self = self else { return }
-            let firstRun = !UserDefaults.standard.bool(forKey: "claudy.didOnboard")
-            if firstRun {
+            if !self.connected { self.startServerAction() }
+            if !UserDefaults.standard.bool(forKey: "claudy.didOnboard") {
                 UserDefaults.standard.set(true, forKey: "claudy.didOnboard")
-                self.notifyWelcome()
-                self.openFloat() // starts the server if needed, then shows the floating window
-            } else if !self.connected {
-                self.startServerAction() // returning user: just make sure the server is up
+                self.showWelcomeWindow()
             }
         }
     }
 
-    // One-time welcome notification: where the app lives + what to click.
-    func notifyWelcome() {
-        let content = UNMutableNotificationContent()
-        content.title = "agent-claudy est lancé 👓"
-        content.body = "L'icône lunettes est dans la barre de menus (en haut à droite). Clique-la pour la fenêtre flottante, le panneau ou les réglages."
-        let req = UNNotificationRequest(identifier: "claudy-welcome", content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(req)
+    // ── First-run welcome window (à la Shottr) ─────────────────────────────────
+    var welcomeWindow: NSWindow?
+
+    private func wLabel(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular,
+                        color: NSColor = .labelColor, align: NSTextAlignment = .center,
+                        width: CGFloat? = nil) -> NSTextField {
+        let l = NSTextField(labelWithString: text)
+        l.font = .systemFont(ofSize: size, weight: weight)
+        l.textColor = color
+        l.alignment = align
+        l.lineBreakMode = .byWordWrapping
+        l.maximumNumberOfLines = 0
+        l.translatesAutoresizingMaskIntoConstraints = false
+        if let w = width { l.widthAnchor.constraint(equalToConstant: w).isActive = true }
+        return l
+    }
+
+    // A small welcome popup (logo + what-to-do + a "support the project" button).
+    func showWelcomeWindow() {
+        if let w = welcomeWindow {
+            w.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true); return
+        }
+        let logo = NSImageView()
+        if let p = Bundle.main.path(forResource: "claudy", ofType: "icns") {
+            logo.image = NSImage(contentsOfFile: p)
+        }
+        logo.imageScaling = .scaleProportionallyUpOrDown
+        logo.translatesAutoresizingMaskIntoConstraints = false
+        logo.widthAnchor.constraint(equalToConstant: 84).isActive = true
+        logo.heightAnchor.constraint(equalToConstant: 84).isActive = true
+
+        let title = wLabel("Bienvenue dans agent-claudy", size: 20, weight: .bold)
+        let desc = wLabel("Tes sessions Claude Code, en têtes de Claudy Focan — qui parlent, bossent et te réclament quand elles ont besoin de toi.",
+                          size: 13, color: .secondaryLabelColor, width: 380)
+        let bullets = wLabel("👓   L'app vit dans la barre de menus (en haut à droite).\n🪟   Fenêtre flottante toujours au‑dessus — raccourci ⌃⌥C.\n🖱️   Clique une tête → sa fenêtre revient au premier plan.\n🔔   Notification quand un agent te réclame.",
+                             size: 13, align: .left, width: 380)
+
+        let donate = NSButton(title: "Soutenir le projet 🙏", target: self, action: #selector(welcomeDonate))
+        donate.bezelStyle = .rounded
+        let go = NSButton(title: "C'est parti !", target: self, action: #selector(welcomeDismiss))
+        go.bezelStyle = .rounded
+        go.keyEquivalent = "\r" // default button (Return)
+        let buttons = NSStackView(views: [donate, go])
+        buttons.orientation = .horizontal
+        buttons.spacing = 12
+
+        let stack = NSStackView(views: [logo, title, desc, bullets, buttons])
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 14
+        stack.edgeInsets = NSEdgeInsets(top: 26, left: 30, bottom: 24, right: 30)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let content = NSView()
+        content.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: content.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+        ])
+
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 460),
+                         styleMask: [.titled, .closable, .fullSizeContentView],
+                         backing: .buffered, defer: false)
+        w.titlebarAppearsTransparent = true
+        w.titleVisibility = .hidden
+        w.isMovableByWindowBackground = true
+        w.isReleasedWhenClosed = false
+        w.contentView = content
+        content.layoutSubtreeIfNeeded()
+        w.setContentSize(content.fittingSize)
+        w.center()
+        welcomeWindow = w
+        w.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // "Soutenir le projet" → deep-links to the in-app donation panel (#donate).
+    @objc func welcomeDonate() {
+        if let u = URL(string: "\(baseURL)/#donate") { NSWorkspace.shared.open(u) }
+    }
+    // "C'est parti" → close the welcome and show the floating window.
+    @objc func welcomeDismiss() {
+        welcomeWindow?.close()
+        welcomeWindow = nil
+        openFloat()
     }
 
     // Quitting the menubar app cleans up what it launched: the floating-window app,

@@ -186,4 +186,12 @@
   }
 
   if (openBtn) openBtn.addEventListener("click", open);
+
+  // Deep-link: open the panel directly when arriving at …/#donate (used by the native
+  // welcome window's "Soutenir le projet" button, and shareable as a direct link).
+  function openIfHash() {
+    if (location.hash === "#donate") open();
+  }
+  window.addEventListener("hashchange", openIfHash);
+  openIfHash();
 })();
