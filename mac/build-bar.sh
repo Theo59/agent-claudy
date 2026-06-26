@@ -77,7 +77,11 @@ if [ "${CLAUDY_EMBED:-0}" = "1" ]; then
   done
   # Minimal package.json so Node treats the embedded server.js as ESM (type:module).
   printf '{ "type": "module", "name": "agent-claudy" }\n' > "$RES/package.json"
-  echo "  ✓ runtime Node embarqué (app autonome)"
+  # Login-at-startup scripts: the menubar app invokes <root>/mac/{install,uninstall}-login.sh,
+  # which resolve PROJECT_DIR as their own parent → Resources (the embedded runtime).
+  mkdir -p "$RES/mac"
+  cp "$ROOT/mac/install-login.sh" "$ROOT/mac/uninstall-login.sh" "$RES/mac/"
+  echo "  ✓ runtime Node + scripts login embarqués (app autonome)"
 fi
 
 # Ad-hoc signature: without it, UNUserNotificationCenter.requestAuthorization fails
