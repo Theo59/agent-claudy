@@ -129,13 +129,68 @@ private let hotKeyHandler: EventHandlerUPP = { (_, _, _) -> OSStatus in
     return noErr
 }
 
+// The global hotkey is CONFIGURABLE from the ⚙ settings (key "floatHotkey" in
+// ~/.config/claudy/config.json, e.g. "ctrl+alt+c"). We re-read it on a timer so a
+// change in the panel applies live without relaunching.
+private var hotKeyRef: EventHotKeyRef?
+private var currentHotkey = ""
+
+// letter/digit → Carbon virtual key code (kVK_ANSI_* are non-sequential).
+private let kvkMap: [String: Int] = [
+    "a": kVK_ANSI_A, "b": kVK_ANSI_B, "c": kVK_ANSI_C, "d": kVK_ANSI_D, "e": kVK_ANSI_E,
+    "f": kVK_ANSI_F, "g": kVK_ANSI_G, "h": kVK_ANSI_H, "i": kVK_ANSI_I, "j": kVK_ANSI_J,
+    "k": kVK_ANSI_K, "l": kVK_ANSI_L, "m": kVK_ANSI_M, "n": kVK_ANSI_N, "o": kVK_ANSI_O,
+    "p": kVK_ANSI_P, "q": kVK_ANSI_Q, "r": kVK_ANSI_R, "s": kVK_ANSI_S, "t": kVK_ANSI_T,
+    "u": kVK_ANSI_U, "v": kVK_ANSI_V, "w": kVK_ANSI_W, "x": kVK_ANSI_X, "y": kVK_ANSI_Y, "z": kVK_ANSI_Z,
+    "0": kVK_ANSI_0, "1": kVK_ANSI_1, "2": kVK_ANSI_2, "3": kVK_ANSI_3, "4": kVK_ANSI_4,
+    "5": kVK_ANSI_5, "6": kVK_ANSI_6, "7": kVK_ANSI_7, "8": kVK_ANSI_8, "9": kVK_ANSI_9,
+]
+
+// "ctrl+alt+c" → (keyCode, modifierFlags). nil if invalid or no modifier.
+private func parseHotkey(_ combo: String) -> (UInt32, UInt32)? {
+    let parts = combo.lowercased().split(separator: "+").map(String.init)
+    guard let last = parts.last, let kc = kvkMap[last] else { return nil }
+    var mods: UInt32 = 0
+    for p in parts.dropLast() {
+        switch p {
+        case "ctrl", "control": mods |= UInt32(controlKey)
+        case "alt", "opt", "option": mods |= UInt32(optionKey)
+        case "shift": mods |= UInt32(shiftKey)
+        case "cmd", "command", "meta": mods |= UInt32(cmdKey)
+        default: break
+        }
+    }
+    guard mods != 0 else { return nil } // a global hotkey needs at least one modifier
+    return (UInt32(kc), mods)
+}
+
+private func configHotkey() -> String {
+    if let env = ProcessInfo.processInfo.environment["CLAUDY_FLOAT_HOTKEY"], !env.isEmpty { return env }
+    let path = NSString(string: "~/.config/claudy/config.json").expandingTildeInPath
+    if let data = FileManager.default.contents(atPath: path),
+       let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+       let hk = obj["floatHotkey"] as? String, !hk.isEmpty {
+        return hk
+    }
+    return "ctrl+alt+c"
+}
+
+private func applyHotkey(_ combo: String) {
+    guard combo != currentHotkey, let (kc, mods) = parseHotkey(combo) else { return }
+    if let old = hotKeyRef { UnregisterEventHotKey(old); hotKeyRef = nil }
+    let id = EventHotKeyID(signature: OSType(0x434C4459), id: 1) // 'CLDY'
+    var ref: EventHotKeyRef?
+    RegisterEventHotKey(kc, mods, id, GetApplicationEventTarget(), 0, &ref)
+    hotKeyRef = ref
+    currentHotkey = combo
+}
+
 func installGlobalHotKey() {
     var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
     InstallEventHandler(GetApplicationEventTarget(), hotKeyHandler, 1, &spec, nil, nil)
-    let id = EventHotKeyID(signature: OSType(0x434C4459), id: 1) // 'CLDY'
-    var ref: EventHotKeyRef?
-    // ⌃⌥C: Control + Option + C.
-    RegisterEventHotKey(UInt32(kVK_ANSI_C), UInt32(controlKey | optionKey), id, GetApplicationEventTarget(), 0, &ref)
+    applyHotkey(configHotkey())
+    // Re-read the config so a hotkey change in the ⚙ panel applies live.
+    Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in applyHotkey(configHotkey()) }
 }
 
 let app = NSApplication.shared
