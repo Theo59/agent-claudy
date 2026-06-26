@@ -23,6 +23,9 @@ body {
     radial-gradient(1200px 700px at 50% -15%, #2a2118 0%, transparent 60%),
     var(--bg);
   line-height: 1.5;
+  /* Safety net against any residual horizontal overflow. `clip` (not `hidden`)
+     does NOT create a scroll container, so the sticky nav keeps working. */
+  overflow-x: clip;
 }
 h1, h2, h3 { line-height: 1.15; }
 a { color: var(--accent); text-decoration: none; }
@@ -59,7 +62,8 @@ a { color: var(--accent); text-decoration: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap; /* never force horizontal scroll: links wrap below if too narrow */
+  gap: 10px 16px;
   padding: 10px 24px;
   position: sticky;
   top: 0;
@@ -333,6 +337,16 @@ section h2 { font-size: clamp(22px, 3vw, 32px); margin: 0 0 28px; text-align: ce
   .steps-grid, .feature-grid, .dl-options { grid-template-columns: 1fr; }
   .term-body { height: 300px; }
   .device-screen { height: 440px; }
+}
+
+/* Phones: keep the nav on one tight line (brand + the two buttons). The secondary
+   "Fonctions" link is dropped (the page scrolls anyway); flex-wrap above is the
+   final safety net so nothing ever overflows the viewport. */
+@media (max-width: 600px) {
+  .nav { padding: 9px 14px; gap: 8px 10px; }
+  .nav-links { gap: 8px; }
+  .nav-links a:not(.btn) { display: none; }
+  .btn { padding: 8px 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
