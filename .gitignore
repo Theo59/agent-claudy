@@ -38,3 +38,6 @@ mac/*.app/
 
 # Dump intermédiaire du générateur de pixel art (tools/render-claudy.cjs)
 claudy-grid*.json
+
+# Artefact DMG (distribué via GitHub Releases, pas dans git)
+mac/*.dmg

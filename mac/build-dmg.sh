@@ -18,9 +18,11 @@ if [ "$(uname)" != "Darwin" ]; then
   exit 1
 fi
 
-# (Re)builder les apps si absentes.
-[ -d "$BAR" ]   || bash "$DIR/build-bar.sh"
-[ -d "$FLOAT" ] || bash "$DIR/build-float.sh"
+# Rebuild systématique. L'app menubar embarque le runtime Node (CLAUDY_EMBED=1) pour être
+# AUTONOME une fois glissée dans /Applications ; la fenêtre flottante n'ouvre qu'une WebView
+# vers le serveur (pas besoin d'embarquer).
+CLAUDY_EMBED=1 bash "$DIR/build-bar.sh"
+bash "$DIR/build-float.sh"
 
 # Dossier de montage temporaire (les 2 apps + lien Applications).
 STAGE="$(mktemp -d)"
