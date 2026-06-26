@@ -184,7 +184,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         stack.setCustomSpacing(10, after: title)  // title hugs its description
         stack.setCustomSpacing(24, after: desc)   // clear gap before the bullets
         stack.setCustomSpacing(28, after: bullets) // and before the buttons
-        stack.edgeInsets = NSEdgeInsets(top: 34, left: 40, bottom: 30, right: 40)
+        stack.edgeInsets = NSEdgeInsets(top: 34, left: 60, bottom: 30, right: 60)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         let content = NSView()
@@ -205,7 +205,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         w.isReleasedWhenClosed = false
         w.contentView = content
         content.layoutSubtreeIfNeeded()
-        w.setContentSize(content.fittingSize)
+        // Fixed width (text 380 + 60 px insets each side) so the left/right margins are
+        // generous and consistent; only the height follows the content.
+        w.setContentSize(NSSize(width: 500, height: content.fittingSize.height))
         w.center()
         welcomeWindow = w
         w.makeKeyAndOrderFront(nil)
