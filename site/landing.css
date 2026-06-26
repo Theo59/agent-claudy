@@ -254,11 +254,18 @@ section.steps, section.features, section.download {
 }
 /* Skip rendering/painting these static sections while off-screen (big scroll win).
    contain-intrinsic-size keeps the scrollbar stable; `auto` remembers the real size. */
-section.steps, section.features, section.download, .foot {
+section.steps, section.features, section.download, section.faq, .foot {
   content-visibility: auto;
   contain-intrinsic-size: auto 480px;
 }
 section h2 { font-size: clamp(22px, 3vw, 32px); margin: 0 0 28px; text-align: center; }
+
+/* ── FAQ (mirrors FAQPage schema) ───────────────────────────────────────── */
+.faq { max-width: 820px; margin: 0 auto; padding: 56px 24px; }
+.faq-item { border-top: 1px solid var(--card-border); padding: 18px 0; }
+.faq-item:first-child { border-top: 0; padding-top: 0; }
+.faq-item h3 { margin: 0 0 8px; font-size: 16px; color: var(--accent); }
+.faq-item p { margin: 0; font-size: 14px; color: var(--ink); }
 .steps-grid {
   list-style: none;
   display: grid;
