@@ -66,8 +66,23 @@ $($HAS_ICON && echo '  <key>CFBundleIconFile</key><string>claudy</string>')
 </plist>
 PLIST_EOF
 
+# Embed the Node runtime so the app is SELF-CONTAINED and relocatable (DMG → /Applications).
+# Only for the distribution build (CLAUDY_EMBED=1, set by build-dmg.sh); a plain dev build
+# stays light and runs from the live repo (projectRoot() falls back to …/mac/..).
+if [ "${CLAUDY_EMBED:-0}" = "1" ]; then
+  RES="$APP/Contents/Resources"
+  for d in server public data bin; do
+    rm -rf "$RES/$d"
+    cp -R "$ROOT/$d" "$RES/$d"
+  done
+  # Minimal package.json so Node treats the embedded server.js as ESM (type:module).
+  printf '{ "type": "module", "name": "agent-claudy" }\n' > "$RES/package.json"
+  echo "  ✓ runtime Node embarqué (app autonome)"
+fi
+
 # Ad-hoc signature: without it, UNUserNotificationCenter.requestAuthorization fails
 # silently on recent macOS. `-` = ad-hoc identity (no certificate required).
+# (Runs AFTER embedding so the runtime is covered by the signature.)
 if command -v codesign >/dev/null 2>&1; then
   codesign --force --deep --sign - "$APP" >/dev/null 2>&1 && echo "  ✓ signée (ad-hoc)" || echo "  (signature ad-hoc échouée — notifs peut-être indisponibles)"
 fi

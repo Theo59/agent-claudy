@@ -38,10 +38,23 @@ func label(_ state: String) -> String {
     }
 }
 
-// Project root derived from the .app location (…/mac/agent-claudy.app → project).
+// Where the Node runtime (server/, public/, data/, bin/) lives. Resolved so the app
+// works whether it's a self-contained bundle (DMG → /Applications) or sitting in the repo.
 func projectRoot() -> String {
+    let fm = FileManager.default
     let bundle = Bundle.main.bundlePath as NSString
-    return (bundle.deletingLastPathComponent as NSString).deletingLastPathComponent
+    // 1. Self-contained: runtime embedded in the bundle (DMG / dragged to Applications).
+    let embedded = bundle.appendingPathComponent("Contents/Resources")
+    if fm.fileExists(atPath: (embedded as NSString).appendingPathComponent("server/server.js")) {
+        return embedded
+    }
+    // 2. In-repo build (…/mac/agent-claudy.app): project root is two levels up.
+    let repo = (bundle.deletingLastPathComponent as NSString).deletingLastPathComponent
+    if fm.fileExists(atPath: (repo as NSString).appendingPathComponent("server/server.js")) {
+        return repo
+    }
+    // 3. Fallback: the curl installer's default clone location (~/.agent-claudy).
+    return NSString(string: "~/.agent-claudy").expandingTildeInPath
 }
 
 // node isn't on the minimal PATH of an app launched by Finder/launchd: we look it up.
