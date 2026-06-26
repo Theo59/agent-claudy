@@ -45,6 +45,10 @@ const SCHEMA = [
   { key: "showBadges", env: "CLAUDY_SHOW_BADGES", type: "bool", default: true, group: "Affichage", label: "Pictos mode / effort (ultracode)" },
   { key: "showActivity", env: "CLAUDY_SHOW_ACTIVITY", type: "bool", default: true, group: "Affichage", label: "Activité au survol de la tête (outil + modèle)" },
   { key: "showSwarm", env: "CLAUDY_SHOW_SWARM", type: "bool", default: true, group: "Affichage", label: "Essaim de sous-agents (mini-têtes)" },
+
+  // Raccourcis (lus par l'app macOS flottante, qui relit config.json et ré-enregistre
+  // le hotkey global à la volée). Format : "ctrl+alt+c" (modificateurs + une lettre/chiffre).
+  { key: "floatHotkey", env: "CLAUDY_FLOAT_HOTKEY", type: "string", default: "ctrl+alt+c", group: "Raccourcis", label: "Afficher / masquer la fenêtre flottante", widget: "hotkey" },
 ];
 
 const BY_KEY = new Map(SCHEMA.map((s) => [s.key, s]));

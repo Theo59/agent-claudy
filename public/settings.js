@@ -104,6 +104,8 @@
       control.className = "set-toggle";
       control.checked = !!value;
       control.addEventListener("change", () => put({ [opt.key]: control.checked }));
+    } else if (opt.widget === "hotkey") {
+      control = hotkeyControl(opt, value);
     } else {
       control = document.createElement("input");
       control.type = opt.type === "number" ? "number" : "text";
@@ -118,6 +120,58 @@
     control.disabled = locked; // locked by an environment variable
     row.appendChild(control);
     return row;
+  }
+
+  // Pretty form of a stored hotkey ("ctrl+alt+c" → "⌃⌥C").
+  function prettyHotkey(combo) {
+    if (!combo) return "";
+    const sym = { ctrl: "⌃", control: "⌃", alt: "⌥", opt: "⌥", option: "⌥", shift: "⇧", cmd: "⌘", command: "⌘", meta: "⌘" };
+    const parts = String(combo).split("+");
+    const key = parts.pop() || "";
+    return parts.map((p) => sym[p.toLowerCase()] || "").join("") + key.toUpperCase();
+  }
+
+  // A "press the keys" recorder button. Captures one combo (modifiers + a letter/digit),
+  // normalizes it to "ctrl+alt+c" and saves it; the macOS float app re-registers it live.
+  function hotkeyControl(opt, value) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "set-input set-hotkey";
+    btn.textContent = prettyHotkey(value) || "Aucun";
+
+    function onKey(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape") return stop();
+      if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) {
+        btn.textContent = "…"; // waiting for the non-modifier key
+        return;
+      }
+      const mods = [];
+      if (e.ctrlKey) mods.push("ctrl");
+      if (e.altKey) mods.push("alt");
+      if (e.shiftKey) mods.push("shift");
+      if (e.metaKey) mods.push("cmd");
+      const k = e.key.length === 1 ? e.key.toLowerCase() : "";
+      if (!mods.length || !/^[a-z0-9]$/.test(k)) {
+        btn.textContent = "Modificateur + lettre/chiffre…";
+        return;
+      }
+      stop();
+      put({ [opt.key]: [...mods, k].join("+") });
+    }
+    function stop() {
+      btn.classList.remove("recording");
+      document.removeEventListener("keydown", onKey, true);
+      btn.textContent = prettyHotkey(meta.values[opt.key]) || "Aucun";
+    }
+    btn.addEventListener("click", () => {
+      if (btn.classList.contains("recording")) return stop();
+      btn.classList.add("recording");
+      btn.textContent = "Appuyez sur une combinaison…";
+      document.addEventListener("keydown", onKey, true);
+    });
+    return btn;
   }
 
   function badge(text, kind) {

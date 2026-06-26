@@ -788,6 +788,19 @@ button.ghost {
 .set-input--mini {
   width: 56px;
 }
+/* Hotkey recorder button (reuses .set-input skin). */
+.set-hotkey {
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+}
+.set-hotkey:hover {
+  border-color: var(--accent);
+}
+.set-hotkey.recording {
+  border-color: var(--green);
+  color: var(--green);
+}
 .set-input:focus {
   outline: none;
   border-color: var(--accent);
