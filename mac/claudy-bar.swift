@@ -86,7 +86,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         // Compact icon (Claudy's glasses) as a template image → adapts to the theme
         // and stays narrow (takes up the space of a single system icon).
         if let button = statusItem.button {
-            let img = NSImage(systemSymbolName: "eyeglasses", accessibilityDescription: "agent-claudy")
+            let img = NSImage(systemSymbolName: "eyeglasses", accessibilityDescription: "Agent Claudy")
             img?.isTemplate = true
             button.image = img
             button.imagePosition = .imageLeft
@@ -155,7 +155,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         logo.widthAnchor.constraint(equalToConstant: 96).isActive = true
         logo.heightAnchor.constraint(equalToConstant: 96).isActive = true
 
-        let title = wLabel("Bienvenue dans agent-claudy", size: 21, weight: .bold)
+        let title = wLabel("Bienvenue dans Agent Claudy", size: 21, weight: .bold)
         let desc = wLabel("Tes sessions Claude Code, en têtes de Claudy Focan — qui parlent, bossent et te réclament quand elles ont besoin de toi.",
                           size: 13, color: .secondaryLabelColor, width: 380)
 
@@ -342,7 +342,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         menu.removeAllItems()
 
         let header = NSMenuItem(
-            title: connected ? "agent-claudy" : "agent-claudy — serveur injoignable",
+            title: connected ? "Agent Claudy" : "Agent Claudy — serveur injoignable",
             action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)

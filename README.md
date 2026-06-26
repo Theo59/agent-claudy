@@ -1,4 +1,4 @@
-# 👓 agent-claudy
+# 👓 Agent Claudy
 
 A **pixel art** visualizer for AI agents. Each agent is a head of **Claudy Focan**
 (*Dikkenek*) who:

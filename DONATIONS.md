@@ -1,6 +1,6 @@
 # Soutenir le créateur
 
-agent-claudy est gratuit et open-source. Si tu veux soutenir son développement, un petit don en crypto fait plaisir. Merci ! 🙏
+Agent Claudy est gratuit et open-source. Si tu veux soutenir son développement, un petit don en crypto fait plaisir. Merci ! 🙏
 
 > ⚠️ Vérifie toujours l'**adresse complète** avant d'envoyer : les transactions crypto sont **irréversibles**.
 

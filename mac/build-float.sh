@@ -24,7 +24,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST_EOF'
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key><string>agent-claudy-float</string>
-  <key>CFBundleDisplayName</key><string>agent-claudy</string>
+  <key>CFBundleDisplayName</key><string>Agent Claudy</string>
   <key>CFBundleIdentifier</key><string>com.claudy.agent-claudy.float</string>
   <key>CFBundleExecutable</key><string>agent-claudy-float</string>
   <key>CFBundlePackageType</key><string>APPL</string>

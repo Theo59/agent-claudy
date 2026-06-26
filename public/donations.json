@@ -1,7 +1,7 @@
 {
   "_comment": "Source unique des adresses de don. Remplace chaque \"address\" par TA vraie adresse (idéalement dédiée aux dons), puis lance `node tools/gen-donations.cjs` pour régénérer DONATIONS.md + les QR. Le panneau in-app lit ce fichier en direct. Une adresse encore en placeholder (commençant par REMPLACER_) est affichée comme « non configurée » et ne génère pas de QR.",
   "title": "Soutenir le créateur",
-  "blurb": "agent-claudy est gratuit et open-source. Si tu veux soutenir son développement, un petit don en crypto fait plaisir. Merci ! 🙏",
+  "blurb": "Agent Claudy est gratuit et open-source. Si tu veux soutenir son développement, un petit don en crypto fait plaisir. Merci ! 🙏",
   "wallets": [
     {
       "id": "btc",
