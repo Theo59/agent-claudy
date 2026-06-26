@@ -99,6 +99,35 @@ final class AppController: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUs
         timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.refresh()
         }
+        bootstrap()
+    }
+
+    // First-launch onboarding so the user isn't left with a bare menu-bar icon:
+    // auto-start the server (the app is useless without it), and on the VERY first run
+    // open the floating window + a welcome notification pointing to the menu-bar icon.
+    func bootstrap() {
+        // Wait ~1.8 s so the initial /api/agents probe has set `connected` → we don't
+        // spawn a second server if one is already running (npm start, login agent…).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { [weak self] in
+            guard let self = self else { return }
+            let firstRun = !UserDefaults.standard.bool(forKey: "claudy.didOnboard")
+            if firstRun {
+                UserDefaults.standard.set(true, forKey: "claudy.didOnboard")
+                self.notifyWelcome()
+                self.openFloat() // starts the server if needed, then shows the floating window
+            } else if !self.connected {
+                self.startServerAction() // returning user: just make sure the server is up
+            }
+        }
+    }
+
+    // One-time welcome notification: where the app lives + what to click.
+    func notifyWelcome() {
+        let content = UNMutableNotificationContent()
+        content.title = "agent-claudy est lancé 👓"
+        content.body = "L'icône lunettes est dans la barre de menus (en haut à droite). Clique-la pour la fenêtre flottante, le panneau ou les réglages."
+        let req = UNNotificationRequest(identifier: "claudy-welcome", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(req)
     }
 
     // ── Reading from the server ───────────────────────────────────────────
