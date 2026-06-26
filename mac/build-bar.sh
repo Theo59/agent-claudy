@@ -55,8 +55,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST_EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>agent-claudy</string>
-  <key>CFBundleDisplayName</key><string>agent-claudy</string>
+  <key>CFBundleName</key><string>Agent Claudy</string>
+  <key>CFBundleDisplayName</key><string>Agent Claudy</string>
   <key>CFBundleIdentifier</key><string>com.claudy.agent-claudy.bar</string>
   <key>CFBundleExecutable</key><string>agent-claudy</string>
   <key>CFBundlePackageType</key><string>APPL</string>

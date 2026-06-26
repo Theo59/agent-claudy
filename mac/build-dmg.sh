@@ -11,7 +11,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 BAR="$DIR/agent-claudy.app"
 FLOAT="$DIR/agent-claudy-float.app"
 DMG="$DIR/agent-claudy.dmg"
-VOL="agent-claudy"
+VOL="Agent Claudy"
 
 if [ "$(uname)" != "Darwin" ]; then
   echo "✗ build-dmg.sh ne tourne que sur macOS." >&2

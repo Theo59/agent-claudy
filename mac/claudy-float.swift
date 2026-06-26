@@ -44,7 +44,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate, WK
             contentRect: rect,
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false)
-        window.title = "agent-claudy"
+        window.title = "Agent Claudy"
         window.titlebarAppearsTransparent = true // blended title bar → thumbnail look
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
