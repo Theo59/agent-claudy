@@ -677,6 +677,11 @@ button.ghost {
   box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6);
   overflow: hidden;
 }
+/* `display:flex` above overrides the UA rule `dialog:not([open]){display:none}`, so a
+   CLOSED panel would linger in normal flow at the bottom. Re-hide it when not open. */
+.settings:not([open]) {
+  display: none;
+}
 /* Small frame (floating window, reduced screen) : the panel takes all the space and
    scrolls, so that ALL the settings stay reachable. */
 @media (max-width: 460px), (max-height: 560px) {
