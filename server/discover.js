@@ -488,7 +488,7 @@ export function createDiscovery({ onChange } = {}) {
       if (!isAlive(meta.pid)) continue;
       if (cfg.hideSession && meta.sessionId === cfg.hideSession) continue;
       const id = shortId(meta.sessionId);
-      const state = mapStatus(meta.status);
+      let state = mapStatus(meta.status);
 
       // Swarm: we only scan subagents for an ACTIVE session (busy or waiting).
       // A workflow started in the background keeps running while the parent waits
@@ -515,6 +515,14 @@ export function createDiscovery({ onChange } = {}) {
           workflowId: c.workflowId,
         }));
       }
+
+      // A "waiting" parent WHILE a dynamic workflow is actively running is the
+      // workflow's OWN dialog (e.g. a sub-agent prompt), which the user can't act on.
+      // Don't raise a red "needs_input" alert for it → show it as plain "working".
+      if (state === "needs_input" && swarm && swarm.working > 0) {
+        state = "working";
+      }
+
       // Activity (last tool + model), mode (permissionMode) and effort level
       // (ultracode…): only for an active session. Everything is memoized (by mtime
       // for activity, by size + incremental scan for effort) → nearly free once
@@ -528,7 +536,7 @@ export function createDiscovery({ onChange } = {}) {
 
       // `waitingFor`: why the session is asking (e.g. "dialog open"). Set by
       // Claude Code only when the status is "waiting" → context for the alert.
-      const waitingFor = meta.status === "waiting" && meta.waitingFor ? String(meta.waitingFor) : null;
+      const waitingFor = state === "needs_input" && meta.waitingFor ? String(meta.waitingFor) : null;
 
       next.set(id, {
         id,
