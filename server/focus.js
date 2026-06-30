@@ -80,8 +80,9 @@ export function focusSession({ pid, cwd }) {
   const info = classify(ancestry(pid));
 
   if (info.kind === "editor") {
-    // `open -a "VS Code" <cwd>`: VS Code focuses the window that already has this folder open.
-    run("open", cwd ? ["-a", info.app, cwd] : ["-a", info.app]);
+    // Sans chemin : active la fenêtre existante sans en ouvrir une nouvelle.
+    // Passer cwd peut créer une nouvelle fenêtre si le dossier ne correspond pas au workspace root.
+    run("open", ["-a", info.app]);
     return { ok: true, action: "editor", app: info.app };
   }
   if (info.kind === "terminal") {
